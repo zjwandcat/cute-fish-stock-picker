@@ -1124,6 +1124,128 @@ function SignalSection({
   );
 }
 
+/* ============ 韭菜50第三信号区块（两态：卖出避雷 / 无信号） ============ */
+
+function BagholderSection({
+  data,
+  dark,
+}: {
+  data: NonNullable<SignalDataFE['bagholder']>;
+  dark: boolean;
+}) {
+  const panelBg = dark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.6)';
+  const border = dark ? '0.5px solid rgba(255, 255, 255, 0.06)' : '0.5px solid rgba(255, 255, 255, 0.8)';
+  const textPrimary = dark ? '#fff' : '#1c1c1e';
+  const textSecondary = dark ? 'rgba(255,255,255,0.5)' : 'rgba(60,60,67,0.6)';
+  const inList = data.in_list;
+  const mainColor = inList ? '#FF3B30' : '#34C759';
+
+  // 因子进度条（Top50成分股有明细；池内未上榜只有总分）
+  const factorBars: { label: string; pct: number; raw: string }[] = [];
+  if (data.factors) {
+    factorBars.push({ label: '追涨热度', pct: data.factors.price_chase_20, raw: data.raw ? `20日涨幅 ${(100 * (data.raw.rev_20 ?? 0)).toFixed(1)}% · 涨停触及${data.raw.limit_touch_20 ?? 0}次` : '' });
+    factorBars.push({ label: '换手放大', pct: data.factors.turn_spike, raw: data.raw ? `20日/120日换手比 ${data.raw.turn_spike !== null ? data.raw.turn_spike.toFixed(2) + '倍' : '--'}` : '' });
+    factorBars.push({ label: '龙虎榜热度', pct: data.factors.toplist_cnt_20, raw: data.raw ? `近20日上榜 ${data.raw.toplist_cnt_20 ?? 0} 次` : '' });
+    factorBars.push({ label: '特大单流量', pct: data.factors.elg_net_20, raw: data.raw ? `净额占分类成交 ${(100 * (data.raw.elg_net_20 ?? 0)).toFixed(1)}%` : '' });
+  }
+
+  return (
+    <div
+      className="rounded-3xl p-4"
+      style={{
+        background: inList ? `${mainColor}10` : panelBg,
+        border: inList ? `0.5px solid ${mainColor}50` : border,
+      }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-bold" style={{ color: textSecondary }}>
+          韭菜50 · 第三信号（冷西西指数算法复刻）
+        </span>
+        <span
+          className="text-xs font-bold px-2.5 py-1 rounded-full"
+          style={{
+            color: mainColor,
+            background: `${mainColor}18`,
+            border: `0.5px solid ${mainColor}45`,
+          }}
+        >
+          {inList ? '卖出 · 拥挤避雷' : '无信号'}
+        </span>
+      </div>
+
+      <div className="space-y-1.5 text-xs mb-2">
+        {inList && data.rank !== null && (
+          <div className="flex justify-between">
+            <span style={{ color: textSecondary }}>韭菜分排名</span>
+            <span className="font-mono font-bold" style={{ color: mainColor }}>第 {data.rank}/50 名</span>
+          </div>
+        )}
+        {!inList && data.score !== null && (
+          <>
+            <div className="flex justify-between">
+              <span style={{ color: textSecondary }}>韭菜分</span>
+              <span className="font-mono font-bold" style={{ color: textPrimary }}>{data.score.toFixed(3)}</span>
+            </div>
+            {data.percentile !== null && (
+              <div className="flex justify-between">
+                <span style={{ color: textSecondary }}>池内拥挤百分位</span>
+                <span className="font-mono" style={{ color: textSecondary }}>{data.percentile}%（越高越拥挤）</span>
+              </div>
+            )}
+          </>
+        )}
+        {inList && data.score !== null && (
+          <div className="flex justify-between">
+            <span style={{ color: textSecondary }}>韭菜分</span>
+            <span className="font-mono font-bold" style={{ color: mainColor }}>{data.score.toFixed(3)}</span>
+          </div>
+        )}
+        {data.signal_date && (
+          <div className="flex justify-between">
+            <span style={{ color: textSecondary }}>信号日（收盘数据）</span>
+            <span className="font-mono" style={{ color: textSecondary }}>
+              {data.signal_date.slice(0, 4)}-{data.signal_date.slice(4, 6)}-{data.signal_date.slice(6, 8)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* 四因子百分位明细（仅Top50成分股展示） */}
+      {factorBars.length > 0 && (
+        <div className="space-y-2.5 pt-2" style={{ borderTop: dark ? '0.5px solid rgba(255,255,255,0.08)' : '0.5px solid rgba(0,0,0,0.06)' }}>
+          {factorBars.map((f) => (
+            <div key={f.label}>
+              <div className="flex justify-between text-xs mb-1">
+                <span style={{ color: textSecondary }}>{f.label}</span>
+                <span className="font-mono" style={{ color: f.pct >= 0.9 ? '#FF3B30' : textPrimary }}>
+                  {(f.pct * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div
+                className="h-1.5 rounded-full overflow-hidden"
+                style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, f.pct * 100)}%`,
+                    background: f.pct >= 0.9 ? 'linear-gradient(90deg, #FF3B30, #FF9F0A)' : 'linear-gradient(90deg, #007AFF, #5AC8FA)',
+                  }}
+                />
+              </div>
+              {f.raw && <div className="text-xs mt-0.5" style={{ color: textSecondary }}>{f.raw}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs leading-relaxed pt-2" style={{ color: textSecondary }}>
+        {data.signal_text}
+      </p>
+    </div>
+  );
+}
+
 /* ============ A+H 两地上市比价区块 ============ */
 
 function AHCompareSection({

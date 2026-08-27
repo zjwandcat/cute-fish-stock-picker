@@ -50,6 +50,10 @@ interface PullbackStatus {
   macdv?: number;
   stage?: number;
   note?: string;
+  /** 韭菜50第三信号两态：'sell'=进入Top50避雷名单 / 'none'=无信号 */
+  bagholder?: 'sell' | 'none';
+  bagholder_score?: number | null;
+  bagholder_percentile?: number | null;
 }
 
 export default function StockTable() {
@@ -247,6 +251,9 @@ export default function StockTable() {
               <th className="text-center py-3 px-5 font-medium" title="TET+MACD-V 各50%权重综合判断：值得回踩/不入场，悬停标签查看评分">
                 回踩状态
               </th>
+              <th className="text-center py-3 px-5 font-medium" title="韭菜50第三信号（冷西西指数算法复刻）：追涨热度/换手放大/龙虎榜注意力/特大单流量四因子拥挤度，进入A股市值前1000最易跑输Top50=卖出避雷，两态：卖出/无信号">
+                韭菜50
+              </th>
               <th className="text-right py-3 px-5 font-medium">PE(TTM)</th>
               <th className="text-right py-3 px-5 font-medium">PB</th>
               <th className="text-right py-3 px-5 font-medium">量比</th>
@@ -280,7 +287,7 @@ export default function StockTable() {
             {stocks.length === 0 && (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   className="text-center py-12"
                   style={{ color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(60,60,67,0.4)' }}
                 >
@@ -384,6 +391,27 @@ function StockRow({
           title={pullback ? `综合评分 ${pullback.score ?? '--'}（TET+MACD-V 各50%权重）· TET趋势${pullback.tet_trend ?? '--'} 情绪${pullback.emotion ?? '--'} MACD-V ${pullback.macdv ?? '--'}，双击行查看详情` : '信号计算中，双击行查看详情'}
         >
           {pullback === undefined ? '计算中…' : pullback.status === 'ok' ? '值得回踩' : '不入场'}
+        </span>
+      </td>
+      <td className="py-3 px-5 text-center">
+        <span
+          className="text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap"
+          style={
+            pullback?.bagholder === 'sell'
+              ? { color: '#FF3B30', borderColor: 'rgba(255, 59, 48, 0.4)', background: 'rgba(255, 59, 48, 0.1)' }
+              : { color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(60,60,67,0.5)', borderColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)', background: 'transparent' }
+          }
+          title={
+            pullback?.bagholder === 'sell'
+              ? `进入韭菜50避雷名单：韭菜分 ${(pullback.bagholder_score ?? 0).toFixed(3)}，池内百分位 ${pullback.bagholder_percentile ?? '--'}%，建议卖出`
+              : pullback?.bagholder_score !== undefined && pullback.bagholder_score !== null
+                ? `未进入韭菜50：韭菜分 ${pullback.bagholder_score.toFixed(3)}，池内百分位 ${pullback.bagholder_percentile ?? '--'}%，无信号`
+                : pullback?.bagholder === 'none'
+                  ? '未进入韭菜50（或不在A股市值前1000监控池），无信号'
+                  : '韭菜50信号计算中'
+          }
+        >
+          {pullback?.bagholder === 'sell' ? '卖出避雷' : pullback?.bagholder === 'none' ? '无信号' : '…'}
         </span>
       </td>
       <td
