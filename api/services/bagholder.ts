@@ -117,7 +117,7 @@ interface RawStore {
   stocks: Record<string, StockWindow>;
 }
 
-/* ==================== Tushare 请求（分页 + 重试） ==================== */
+/* ==================== Tushare 请求（全局节流 + 退避重试 + 分页） ==================== */
 
 interface TushareResponse {
   code: number;
@@ -125,13 +125,36 @@ interface TushareResponse {
   data?: { fields: string[]; items: (string | number | null)[][] };
 }
 
+/**
+ * 全局节流器：Tushare 限流约 500 次/分钟，控制在 ~280 次/分钟以内（200ms 间隔）。
+ * 全部请求（含分页）串行过闸，避免全量构建触发限流后整段日期拉空。
+ */
+const MIN_REQ_INTERVAL = 200;
+let lastReqAt = 0;
+let throttleChain: Promise<void> = Promise.resolve();
+function throttle(): Promise<void> {
+  const prev = throttleChain;
+  let release: () => void;
+  const cur = new Promise<void>((r) => {
+    release = r;
+  });
+  throttleChain = prev.then(async () => {
+    const wait = lastReqAt + MIN_REQ_INTERVAL - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastReqAt = Date.now();
+    release!();
+  });
+  return cur;
+}
+
+/** 单次请求：ok=false 表示网络/限流失败（值得重试）；ok=true 成功（空行=当日真无数据） */
 async function tsRequestOnce(
   apiName: string,
   params: Record<string, string | number>,
   fields: string,
-): Promise<Record<string, unknown>[]> {
+): Promise<{ ok: boolean; rows: Record<string, unknown>[] }> {
   const token = process.env.TUSHARE_TOKEN || '';
-  if (!token || token === 'your_token_here') return [];
+  if (!token || token === 'your_token_here') return { ok: true, rows: [] };
   try {
     const resp = await axios.post<TushareResponse>(
       TUSHARE_API_URL,
@@ -141,32 +164,40 @@ async function tsRequestOnce(
     const { code, msg, data } = resp.data;
     if (code !== 0) {
       console.warn(`[bagholder50] Tushare error [${apiName}]: ${msg}`);
-      return [];
+      return { ok: false, rows: [] };
     }
-    if (!data?.fields || !data.items) return [];
-    return data.items.map((item) => {
-      const row: Record<string, unknown> = {};
-      data.fields.forEach((f, i) => {
-        row[f] = item[i];
-      });
-      return row;
-    });
+    if (!data?.fields || !data.items) return { ok: true, rows: [] };
+    return {
+      ok: true,
+      rows: data.items.map((item) => {
+        const row: Record<string, unknown> = {};
+        data.fields.forEach((f, i) => {
+          row[f] = item[i];
+        });
+        return row;
+      }),
+    };
   } catch (err) {
     console.error(`[bagholder50] Tushare failed [${apiName}]:`, (err as Error).message);
-    return [];
+    return { ok: false, rows: [] };
   }
 }
 
-/** 单接口调用（空结果重试 1 次再下结论） */
+/** 单接口调用：失败（网络/限流）指数退避重试至 5 次；成功即返回（空行不重试） */
 async function tsRequest(
   apiName: string,
   params: Record<string, string | number>,
   fields: string,
 ): Promise<Record<string, unknown>[]> {
-  const first = await tsRequestOnce(apiName, params, fields);
-  if (first.length > 0) return first;
-  await new Promise((r) => setTimeout(r, 600));
-  return tsRequestOnce(apiName, params, fields);
+  let delay = 1000;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await throttle();
+    const { ok, rows } = await tsRequestOnce(apiName, params, fields);
+    if (ok) return rows;
+    await new Promise((r) => setTimeout(r, delay));
+    delay = Math.min(delay * 2, 20_000);
+  }
+  return [];
 }
 
 /** 按日期拉全表（offset 分页防截断） */
@@ -186,7 +217,7 @@ async function tsRequestByDate(
   return out;
 }
 
-/** 带并发上限的按日循环拉取 */
+/** 带并发上限的按日循环拉取（实际速率由全局节流器串行控制） */
 async function fetchByDates(
   apiName: string,
   dates: string[],
@@ -204,6 +235,23 @@ async function fetchByDates(
   });
   await Promise.all(workers);
   return out;
+}
+
+/** 校验交易日整表齐备，缺失日期补拉（防限流残留空洞；top_list 等可为空的接口勿用） */
+async function fillMissingDates(
+  apiName: string,
+  dates: string[],
+  rows: Record<string, unknown>[],
+  fields: string,
+): Promise<Record<string, unknown>[]> {
+  const have = new Set(rows.map((r) => String(r.trade_date ?? '')));
+  const missing = dates.filter((d) => !have.has(d));
+  if (missing.length === 0) return rows;
+  console.warn(
+    `[bagholder50] ${apiName} 缺 ${missing.length} 个交易日（${missing[0]}..${missing[missing.length - 1]}），补拉`,
+  );
+  const extra = await fetchByDates(apiName, missing, fields);
+  return [...rows, ...extra];
 }
 
 /* ==================== 基础工具 ==================== */
@@ -359,7 +407,7 @@ async function fullBuildRawStore(signalDate: string, tradeDates: string[]): Prom
     'buy_sm_amount', 'sell_sm_amount', 'buy_md_amount', 'sell_md_amount',
     'buy_lg_amount', 'sell_lg_amount', 'buy_elg_amount', 'sell_elg_amount',
   ];
-  const [dailyRows, adjRows, basicRows, limitRows, topListRows, mfRows] = await Promise.all([
+  const [dailyRows0, adjRows0, basicRows0, limitRows0, topListRows, mfRows0] = await Promise.all([
     fetchByDates('daily', dailyDates, 'ts_code,trade_date,close,high'),
     fetchByDates('adj_factor', dailyDates, 'ts_code,trade_date,adj_factor'),
     fetchByDates('daily_basic', basicDates, 'ts_code,trade_date,turnover_rate'),
@@ -367,13 +415,27 @@ async function fullBuildRawStore(signalDate: string, tradeDates: string[]): Prom
     fetchByDates('top_list', shortDates, 'ts_code,trade_date'),
     fetchByDates('moneyflow', shortDates, `ts_code,trade_date,${MF_FIELDS.join(',')}`),
   ]);
+  // 交易日整表必须齐备：缺失日期补拉（限流/网络残缺防护）
+  const [dailyRows, adjRows, basicRows, limitRows, mfRows] = await Promise.all([
+    fillMissingDates('daily', dailyDates, dailyRows0, 'ts_code,trade_date,close,high'),
+    fillMissingDates('adj_factor', dailyDates, adjRows0, 'ts_code,trade_date,adj_factor'),
+    fillMissingDates('daily_basic', basicDates, basicRows0, 'ts_code,trade_date,turnover_rate'),
+    fillMissingDates('stk_limit', shortDates, limitRows0, 'ts_code,trade_date,up_limit'),
+    fillMissingDates('moneyflow', shortDates, mfRows0, `ts_code,trade_date,${MF_FIELDS.join(',')}`),
+  ]);
 
-  // fail-closed 校验：四因子数据源整表必须齐备
-  if (dailyRows.length === 0) throw new Error('daily 整表未到，fail-closed');
-  if (mfRows.length === 0) throw new Error('moneyflow 整表未到，fail-closed');
-  if (basicRows.length === 0) throw new Error('daily_basic 整表未到，fail-closed');
+  // fail-closed 校验：四因子数据源整表必须齐备（补拉后仍缺则失败，不存残缺数据）
+  const datesCovered = (rows: Record<string, unknown>[]) => new Set(rows.map((r) => String(r.trade_date ?? '')));
+  const missingOf = (dates: string[], covered: Set<string>) => dates.filter((d) => !covered.has(d));
+  const dailyMiss = missingOf(dailyDates, datesCovered(dailyRows));
+  const adjMiss = missingOf(dailyDates, datesCovered(adjRows));
+  const basicMiss = missingOf(basicDates, datesCovered(basicRows));
+  const mfMiss = missingOf(shortDates, datesCovered(mfRows));
+  if (dailyMiss.length > 0) throw new Error(`daily 缺 ${dailyMiss.length} 个交易日（${dailyMiss[0]}..${dailyMiss[dailyMiss.length - 1]}），fail-closed`);
+  if (adjMiss.length > 0) throw new Error(`adj_factor 缺 ${adjMiss.length} 个交易日，fail-closed`);
+  if (basicMiss.length > 0) throw new Error(`daily_basic 缺 ${basicMiss.length} 个交易日（${basicMiss[0]}..${basicMiss[basicMiss.length - 1]}），fail-closed`);
+  if (mfMiss.length > 0) throw new Error(`moneyflow 缺 ${mfMiss.length} 个交易日，fail-closed`);
   if (limitRows.length === 0) throw new Error('stk_limit 整表未到，fail-closed');
-  if (adjRows.length === 0) throw new Error('adj_factor 整表未到，fail-closed');
   // top_list 允许为空（当日无上榜按 0 处理）
 
   const closeMap = rowsToFieldMap(dailyRows, 'close');

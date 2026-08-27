@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/uiStore';
 import Navbar from '@/components/Navbar';
 import RecommendSection from '@/components/RecommendSection';
 import HoldingsSection from '@/components/HoldingsSection';
+import Bagholder50Section from '@/components/Bagholder50Section';
 import StockTable from '@/components/StockTable';
 import DetailPanel from '@/components/DetailPanel';
 import AlertPanel from '@/components/AlertPanel';
@@ -39,6 +40,7 @@ export default function Home() {
         <div className="py-6">
           <RecommendSection />
           <HoldingsSection />
+          <Bagholder50Section />
           <StockTable />
         </div>
       </main>
