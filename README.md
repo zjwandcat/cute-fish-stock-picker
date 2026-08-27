@@ -10,12 +10,12 @@
 - **Watchlist tracking** — add/remove stocks at runtime, auto-refresh quotes every 30 seconds
 - **Real-time quotes** — prefers Sina Finance realtime feed, Tushare as fallback
 - **Intelligent scoring** — technical (MA / MACD / volume ratio) + fundamental (PE / PB / ROE) + capital-flow, multi-factor Z-score normalized with IC weights and ±3σ winsorization
-- **TET & MACD-V signals** — Trend-/Emotion-aligned timing (NAAIM 2025) and volume-adjusted momentum (MACD-V, SSRN #4099617); 10 sell-trigger mechanism for holdings
+- **TET & MACD-V signals** — Trend-/Emotion-aligned timing (NAAIM 2025) and volume-adjusted momentum (MACD-V, SSRN #4099617); 11 sell-trigger mechanism for holdings (incl. crowding avoid)
 - **Buy/sell recommendations** — per-stock overall verdict (buy / watch / sell), Top-4 sector-diversified daily picks with manual override support
 - **Watchlist alerts** — five signal types (dip / bottom / rebound / volume / target), browser notification + sound, color-coded pullback status
 - **K-line charts** — daily K + moving averages + volume
 - **Stock detail** — top-10 shareholders, capital flow, announcements/dividends, news
-- **Watchlist-backed signals** — `韭菜50` crowding/avoid signal (two states: avoid / no signal)
+- **Watchlist-backed signals** — `韭菜50` (Bagholder50) crowding avoid signal, a re-implementation of the bagholder50 index: four factors (20d price chase, turnover spike, dragon-tiger list count, ELG net flow) equally weighted via cross-sectional percentile ranks over the top-1000 A-share market cap universe; two states only (avoid = in Top50 / no signal). Locally cached with incremental daily updates; fail-closed when any of the four data sources is missing
 - **iOS 26 liquid-glass UI** — light/dark themes and adjustable font size
 
 ## Tech Stack
@@ -128,7 +128,7 @@ Double-click `启动选股指南.command` in the project root.
 | DELETE | `/api/stocks/:code` | Remove stock from the pool |
 | GET/POST | `/api/holdings` | Read / update holdings |
 | GET/POST | `/api/settings` | MACD-V thresholds |
-| GET | `/api/bagholder50` | `韭菜50` crowding signal |
+| GET | `/api/bagholder50` | `韭菜50` Top50 crowding avoid list (Bagholder50 index re-implementation) |
 | GET | `/api/alerts` | List alerts |
 | POST | `/api/alerts/analyze` | Trigger manual analysis |
 | GET/POST | `/api/alerts/targets` | Manage target prices |
@@ -142,7 +142,7 @@ Double-click `启动选股指南.command` in the project root.
 - Unified EditorConfig (see `.editorconfig`)
 - Explicit `import type` for type-only imports
 
-> Runtime user data under `api/data/` (holdings, settings) is gitignored and never committed. Configure the Tushare token via `.env` only.
+> Runtime user data under `api/data/` (holdings, settings, bagholder50 cache) is gitignored and never committed. Configure the Tushare token via `.env` only. The bagholder50 cache performs a full build (~460 API calls, throttled at ~280 req/min with exponential backoff) on first use, then only ~10 incremental calls per day.
 
 ## Disclaimer
 

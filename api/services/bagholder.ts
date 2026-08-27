@@ -949,7 +949,12 @@ export async function getBagholder50(): Promise<BagholderResult> {
       const result = computeTop50(raw, tradeDates);
       cache.set('bagholder50_result', result, CACHE_TTL_RESULT);
       try {
-        await writeFile(RESULT_FILE, JSON.stringify(result), 'utf-8');
+        // 同一信号日不重写结果文件（避免触发 dev 工具链文件监听重启循环）
+        const existing = await readFile(RESULT_FILE, 'utf-8').catch(() => '');
+        const prev = existing ? (JSON.parse(existing) as BagholderResult) : null;
+        if (!prev || prev.signal_date !== result.signal_date) {
+          await writeFile(RESULT_FILE, JSON.stringify(result), 'utf-8');
+        }
       } catch {
         // 结果写盘失败不影响返回
       }
