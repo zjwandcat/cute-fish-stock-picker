@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0d1117;
+  --bg-card: #161b22;
+  --border: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --color-up: #00d4aa;
+  --color-down: #ff4757;
+  --color-gold: #f0b90b;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --base-font-size: 16px;
+
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* rem 布局基准：由 Home.tsx 按字体档位以 0.875 比例同步缩放（小档=14px） */
+  font-size: 14px;
+}
+
+/* 字体大小全局缩放 - 覆盖 Tailwind 的固定 rem 值 */
+.text-xs { font-size: calc(var(--base-font-size) * 0.75) !important; }
+.text-sm { font-size: calc(var(--base-font-size) * 0.875) !important; }
+.text-base { font-size: calc(var(--base-font-size) * 1) !important; }
+.text-lg { font-size: calc(var(--base-font-size) * 1.125) !important; }
+.text-xl { font-size: calc(var(--base-font-size) * 1.25) !important; }
+.text-2xl { font-size: calc(var(--base-font-size) * 1.5) !important; }
+.text-3xl { font-size: calc(var(--base-font-size) * 1.875) !important; }
+.text-4xl { font-size: calc(var(--base-font-size) * 2.25) !important; }
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* 数字使用等宽字体 */
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
+
+/* 深色滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
+
+/* Firefox 滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #30363d transparent;
+}
+
+/* 水平滚动区域 */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #30363d transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 2px;
+}
+
+/* 自定义动画 */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(0, 212, 170, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(0, 212, 170, 0.25);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* 行截断 */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

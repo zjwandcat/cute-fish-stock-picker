@@ -1,0 +1,56 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build output
+dist
+dist-ssr
+*.local
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+server.log
+
+# Environment variables (contains secrets, NEVER commit)
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vite cache
+.vite
+
+# Bundled runtime (project-local Node.js)
+.node/
+
+# Runtime user data (personal portfolio holdings, user-specific settings)
+api/data/
+
+# Internal tooling docs / specs / prompts (NOT for public repo)
+.trae/
+*.prompt
+*.prompts.md
+
+# macOS personal documents (NOT for public repo)
+*.pages
+未命名.pages
