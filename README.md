@@ -1,140 +1,153 @@
-# 可爱鱼儿选股指南
+# Cute Fish Stock Picker (可爱鱼儿选股指南)
 
-> 基于 Tushare 与新浪实时行情的 A 股自选股盯盘、智能评分与告警提醒工具。
+> A stock-watchlist, scoring, and alerting tool for A-shares, powered by [Tushare](https://tushare.pro) and Sina real-time quotes. **Real-time intraday signals**, **TET + MACD-V dual-algorithm**, and a **glassmorphism** UI.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[简体中文](README.zh-CN.md) · **English**
 
-## 功能特性
+## Features
 
-- **自选股盯盘**:支持运行时增删股池,30 秒自动刷新行情
-- **实时行情**:优先使用新浪财经实时报价,Tushare 作为回退
-- **智能评分**:技术面(均线/MACD/量比)+ 基本面(PE/PB/ROE)+ 资金面三维综合评分
-- **盯盘提醒**:跌深、底部、反弹、异动、目标价五类信号,支持浏览器通知与声音
-- **K 线图**:日 K + 常规均线 + 大道七线 + 成交量
-- **个股详情**:十大股东、资金流向、公告会议、除权除息、新闻
-- **iOS 26 液态玻璃风格 UI**:支持深浅主题切换与字体大小调节
+- **Watchlist tracking** — add/remove stocks at runtime, auto-refresh quotes every 30 seconds
+- **Real-time quotes** — prefers Sina Finance realtime feed, Tushare as fallback
+- **Intelligent scoring** — technical (MA / MACD / volume ratio) + fundamental (PE / PB / ROE) + capital-flow, multi-factor Z-score normalized with IC weights and ±3σ winsorization
+- **TET & MACD-V signals** — Trend-/Emotion-aligned timing (NAAIM 2025) and volume-adjusted momentum (MACD-V, SSRN #4099617); 10 sell-trigger mechanism for holdings
+- **Buy/sell recommendations** — per-stock overall verdict (buy / watch / sell), Top-4 sector-diversified daily picks with manual override support
+- **Watchlist alerts** — five signal types (dip / bottom / rebound / volume / target), browser notification + sound, color-coded pullback status
+- **K-line charts** — daily K + moving averages + volume
+- **Stock detail** — top-10 shareholders, capital flow, announcements/dividends, news
+- **Watchlist-backed signals** — `韭菜50` crowding/avoid signal (two states: avoid / no signal)
+- **iOS 26 liquid-glass UI** — light/dark themes and adjustable font size
 
-## 技术栈
+## Tech Stack
 
-| 模块 | 技术 |
+| Layer | Tech |
 | --- | --- |
-| 前端 | React 18 + TypeScript 5 + Vite 6 + Tailwind CSS 3 |
-| 状态 | Zustand 5 |
-| 图表 | ECharts 5 + echarts-for-react |
-| 路由 | React Router 7 |
-| 后端 | Express 4 + TypeScript + tsx |
-| 数据源 | Tushare Pro + 新浪财经 |
-| 部署 | Vercel(Serverless) |
+| Frontend | React 18 + TypeScript 5 + Vite 6 + Tailwind CSS 3 |
+| State | Zustand 5 |
+| Charts | ECharts 5 + echarts-for-react |
+| Router | React Router 7 |
+| Backend | Express 4 + TypeScript + tsx |
+| Data sources | Tushare Pro + Sina Finance |
+| Deployment | Vercel (Serverless) |
 
-## 快速开始
+## Quick Start
 
-### 环境要求
+### Prerequisites
 
 - Node.js ≥ 18
 - npm ≥ 9
 
-### 安装
+### Install
 
 ```bash
 git clone <repository-url>
-cd 可爱鱼儿选股指南
+cd cute-fish-stock-picker
 npm install
 ```
 
-### 配置
+### Configure
 
-复制环境变量模板并填入真实 Token:
+Copy the environment template and fill in a real token:
 
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env`:
+Edit `.env`:
 
 ```
 TUSHARE_TOKEN=your_real_token_here
 PORT=3001
 ```
 
-> Token 申请:https://tushare.pro/register
+> Get a token: https://tushare.pro/register
 
-### 开发
+### Development
 
 ```bash
-# 同时启动前端(5173)与后端(3001)
+# start frontend (5173) + backend (3001)
 npm run dev
 
-# 仅前端
+# frontend only
 npm run client:dev
 
-# 仅后端
+# backend only
 npm run server:dev
 ```
 
-### 构建与检查
+### Build & Checks
 
 ```bash
-npm run build       # 类型检查 + 构建
-npm run check       # 仅类型检查
-npm run lint        # ESLint 检查
-npm run lint:fix    # ESLint 自动修复
+npm run build       # type-check + build
+npm run check       # type-check only
+npm run lint        # ESLint
+npm run lint:fix    # ESLint autofix
 ```
 
-### 一键启动(macOS)
+### One-click startup (macOS)
 
-双击项目根目录的 `启动选股指南.command` 即可启动。
+Double-click `启动选股指南.command` in the project root.
 
-## 项目结构
+## Project Structure
 
 ```
 .
-├── api/                # 后端 Express 服务
-│   ├── routes/         # API 路由(stocks / alerts / auth)
-│   ├── services/       # 业务服务(tushare / realtime / scoring / alertEngine ...)
-│   ├── app.ts          # Express 应用入口
-│   ├── index.ts        # Vercel Serverless 入口
-│   └── server.ts       # 本地开发服务入口
-├── src/                # 前端 React 应用
-│   ├── components/     # 通用组件(Navbar / StockTable / DetailPanel ...)
-│   ├── lib/            # 工具函数
-│   ├── pages/          # 页面
-│   ├── services/       # 前端服务层
-│   ├── store/          # Zustand 状态管理
-│   └── types/          # TypeScript 类型定义
-├── public/             # 静态资源
-├── LICENSE             # MIT 许可证
-└── README.md           # 项目说明
+├── api/                # Express backend
+│   ├── routes/         # API routes (stocks / alerts / auth)
+│   ├── services/       # services (tushare / realtime / scoring / alertEngine ...)
+│   ├── app.ts          # Express app entry
+│   ├── index.ts        # Vercel Serverless entry
+│   └── server.ts       # local dev entry
+├── src/                # React frontend
+│   ├── components/     # shared components (Navbar / StockTable / DetailPanel ...)
+│   ├── lib/            # utilities
+│   ├── pages/          # pages
+│   ├── services/       # frontend service layer
+│   ├── store/          # Zustand stores
+│   └── types/          # TypeScript types
+├── public/             # static assets
+├── LICENSE             # MIT license
+└── README.md           # this file
 ```
 
-## API 接口
+## API
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 | --- | --- | --- |
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/stocks` | 获取自选股实时行情 |
-| GET | `/api/stocks/:code/detail` | 个股详情 |
-| GET | `/api/stocks/:code/daily` | 日 K 线 |
-| GET | `/api/stocks/:code/news` | 公司新闻 |
-| GET | `/api/recommendations` | 今日推荐 |
-| POST | `/api/stocks/add` | 添加股票到股池 |
-| DELETE | `/api/stocks/:code` | 从股池移除 |
-| GET | `/api/alerts` | 获取告警列表 |
-| POST | `/api/alerts/analyze` | 手动触发分析 |
-| GET/POST | `/api/alerts/targets` | 目标价管理 |
-| DELETE | `/api/alerts` | 清空告警 |
+| GET | `/api/health` | Health check |
+| GET | `/api/stocks` | Watchlist realtime quotes |
+| GET | `/api/stocks/search?query=` | Smart stock search |
+| GET | `/api/stocks/:code/detail` | Stock detail |
+| GET | `/api/stocks/:code/daily` | Daily K-line |
+| GET | `/api/stocks/:code/news` | Company news |
+| GET | `/api/stocks/:code/signals` | TET+MACD-V signals & overall verdict |
+| GET | `/api/recommendations?limit=&offset=` | Daily recommendations |
+| GET | `/api/pullback-status` | Pullback status for the whole pool |
+| GET | `/api/pool-scores` | Pool composite scores |
+| POST | `/api/stocks/add` | Add stock to the pool |
+| DELETE | `/api/stocks/:code` | Remove stock from the pool |
+| GET/POST | `/api/holdings` | Read / update holdings |
+| GET/POST | `/api/settings` | MACD-V thresholds |
+| GET | `/api/bagholder50` | `韭菜50` crowding signal |
+| GET | `/api/alerts` | List alerts |
+| POST | `/api/alerts/analyze` | Trigger manual analysis |
+| GET/POST | `/api/alerts/targets` | Manage target prices |
+| DELETE | `/api/alerts` | Clear alerts |
 
-## 代码规范
+## Coding Standards
 
-- TypeScript 严格模式(`strict: true`)
-- ESLint + typescript-eslint(对齐 Google TS Style Guide 与 Airbnb 风格)
-- 单引号 / 2 空格缩进 / 行尾分号 / 多行尾逗号
-- 统一 EditorConfig 配置(见 `.editorconfig`)
-- `import type` 显式标注类型导入
+- TypeScript strict mode (`strict: true`)
+- ESLint + typescript-eslint (aligned with Google TS Style Guide / Airbnb notes)
+- Single quotes / 2-space indent / semicolons / trailing commas
+- Unified EditorConfig (see `.editorconfig`)
+- Explicit `import type` for type-only imports
 
-## 风险提示
+> Runtime user data under `api/data/` (holdings, settings) is gitignored and never committed. Configure the Tushare token via `.env` only.
 
-本项目仅供学习与技术研究,所有信号与评分均为算法输出,**不构成任何投资建议**。据此交易,风险自负。
+## Disclaimer
 
-## 许可证
+For learning and research purposes only. All signals and scores are algorithmic outputs and **do not constitute investment advice**. Trading is at your own risk.
 
-[MIT License](./LICENSE) © 2026 可爱鱼儿选股指南
+## License
+
+[MIT License](./LICENSE) © 2026 Cute Fish Stock Picker
