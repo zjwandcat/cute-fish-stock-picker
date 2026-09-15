@@ -1,4 +1,4 @@
-import { RefreshCw, Sun, Moon } from 'lucide-react';
+import { Download, RefreshCw, Sun, Moon } from 'lucide-react';
 import { useStockStore } from '@/store/stockStore';
 import { useUIStore } from '@/store/uiStore';
 
@@ -14,10 +14,18 @@ export default function Navbar() {
 
   const fontSizeClass = fontSize === 'small' ? 'text-xs' : fontSize === 'large' ? 'text-base' : 'text-sm';
   const dark = theme === 'dark';
+  const releaseUrl = 'https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest';
+  const platform = /Win/i.test(navigator.userAgent) ? 'Windows' : /Mac/i.test(navigator.userAgent) ? 'macOS' : 'other';
+  const downloadUrl = platform === 'Windows'
+    ? `${releaseUrl}/download/cute-fish-stock-picker-windows.zip`
+    : platform === 'macOS'
+      ? `${releaseUrl}/download/cute-fish-stock-picker-macos.zip`
+      : releaseUrl;
+  const downloadLabel = platform === 'Windows' ? '下载 Windows 版' : platform === 'macOS' ? '下载 macOS 版' : '下载客户端';
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between px-6 transition-all duration-300"
+      className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between px-4 md:px-6 transition-all duration-300"
       style={{
         background: dark
           ? 'linear-gradient(135deg, rgba(28, 28, 30, 0.85) 0%, rgba(44, 44, 46, 0.75) 100%)'
@@ -99,7 +107,25 @@ export default function Navbar() {
           )}
         </button>
 
-        <span>
+        <a
+          href={downloadUrl}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95"
+          style={{ background: dark ? 'rgba(0, 122, 255, 0.18)' : 'rgba(0, 122, 255, 0.1)', color: '#007AFF' }}
+          title="下载适合当前操作系统的版本"
+        >
+          <Download size={15} />
+          {downloadLabel}
+        </a>
+        <a
+          href={releaseUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="hidden xl:inline"
+          style={{ color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(60,60,67,0.6)' }}
+        >
+          其他版本
+        </a>
+        <span className="hidden lg:inline">
           更新于{' '}
           <span
             className="font-mono"
@@ -108,7 +134,7 @@ export default function Navbar() {
             {formatTime(lastRefresh)}
           </span>
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="hidden sm:flex items-center gap-1.5">
           <span
             className="inline-block w-2 h-2 rounded-full animate-pulse"
             style={{ background: '#34C759' }}

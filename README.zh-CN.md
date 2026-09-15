@@ -84,9 +84,22 @@ npm run lint        # ESLint 检查
 npm run lint:fix    # ESLint 自动修复
 ```
 
-### 一键启动(macOS)
+### 一键启动
 
-双击项目根目录的 `启动选股指南.command` 即可启动。
+1. 从 [Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest) 下载对应系统的压缩包。
+2. 解压后复制 `.env.example` 为 `.env`，并填写 `TUSHARE_TOKEN`。
+3. macOS 双击 `启动选股指南.command`；Windows 10 / 11 双击 `启动选股指南.bat`。
+
+首次启动会自动安装依赖并在浏览器打开 `http://localhost:5173`。需要 Node.js 18 或更高版本。
+
+### 发布桌面安装包
+
+推送 `v*` 格式的 Git 标签会触发 GitHub Actions，自动构建并发布 macOS 与 Windows 压缩包。例如：
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
 
 ## 项目结构
 

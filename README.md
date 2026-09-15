@@ -84,9 +84,22 @@ npm run lint        # ESLint
 npm run lint:fix    # ESLint autofix
 ```
 
-### One-click startup (macOS)
+### One-click startup
 
-Double-click `启动选股指南.command` in the project root.
+1. Download the package for your system from [Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest).
+2. Copy `.env.example` to `.env`, then set `TUSHARE_TOKEN`.
+3. On macOS, double-click `启动选股指南.command`; on Windows 10 / 11, double-click `启动选股指南.bat`.
+
+The first startup installs dependencies and opens `http://localhost:5173`. Node.js 18 or newer is required.
+
+### Publish desktop packages
+
+Pushing a `v*` Git tag triggers GitHub Actions to build and publish both macOS and Windows packages:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
 
 ## Project Structure
 
