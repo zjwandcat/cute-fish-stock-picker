@@ -1,50 +1,27 @@
 #!/bin/bash
-
-# 可爱鱼儿选股指南 - 启动脚本
-# 双击即可运行
-
+set -euo pipefail
 cd "$(dirname "$0")"
 
-echo "========================================="
-echo "  可爱鱼儿选股指南 - 启动中..."
-echo "========================================="
-echo ""
-
-# 检查 Node.js
-if [ ! -f "./.node/bin/node" ]; then
-    echo "❌ 错误：未找到 Node.js"
-    echo "请确保 .node 目录存在"
-    exit 1
+architecture="$(uname -m)"
+runtime="./runtime/darwin-${architecture}/bin/node"
+if [ "$architecture" = "x86_64" ]; then
+  runtime="./runtime/darwin-x64/bin/node"
 fi
 
-# 设置 PATH
-export PATH="$(pwd)/.node/bin:$PATH"
-
-# 检查依赖
-if [ ! -d "node_modules" ]; then
-    echo "📦 首次运行，安装依赖..."
-    npm install
+if [ -x "$runtime" ] && [ -f "./build/server.mjs" ]; then
+  exec "$runtime" ./build/server.mjs
 fi
 
-# 清理旧进程
-echo "🧹 清理旧进程..."
-lsof -ti:3001 2>/dev/null | xargs kill -9 2>/dev/null || true
-lsof -ti:5173 2>/dev/null | xargs kill -9 2>/dev/null || true
-
-# 启动服务
-echo ""
-echo "🚀 启动后端和前端服务..."
-echo ""
-echo "后端地址: http://localhost:3001"
-echo "前端地址: http://localhost:5173"
-echo ""
-echo "========================================="
-echo "  按 Ctrl+C 停止服务"
-echo "========================================="
-echo ""
-
-# 等待 2 秒后打开浏览器
-(sleep 3 && open http://localhost:5173) &
-
-# 启动开发服务器
-npm run dev
+# Source checkout: use a local or system Node.js installation.
+if [ -x "./.node/bin/node" ]; then
+  export PATH="$PWD/.node/bin:$PATH"
+fi
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+  echo "请从项目 Releases 下载 macOS 便携版（已内置运行环境）。"
+  echo "源码运行需要安装 Node.js 22 或更高版本。"
+  read -r -p "按回车退出..." _
+  exit 1
+fi
+if [ ! -d node_modules ]; then npm ci; fi
+npm run build:local
+exec node ./build/server.mjs

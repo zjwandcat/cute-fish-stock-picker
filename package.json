@@ -1,6 +1,6 @@
 {
   "name": "cute-fish-stock-picker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "可爱鱼儿选股指南 - 基于 Tushare 与新浪实时行情的 A 股自选股盯盘、评分与提醒工具",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "echarts"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "client:dev": "vite",
@@ -26,6 +26,11 @@
     "lint:fix": "eslint . --fix",
     "preview": "vite preview",
     "check": "tsc --noEmit",
+    "build:local": "npm run build && node scripts/build-local.mjs",
+    "test:local": "node --test tests/*.test.mjs",
+    "package": "node scripts/package-release.mjs",
+    "package:windows": "npm run build:local && node scripts/package-release.mjs windows",
+    "package:macos": "npm run build:local && node scripts/package-release.mjs macos",
     "server:dev": "nodemon",
     "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
     "start": "tsx api/server.ts"
@@ -58,6 +63,7 @@
     "autoprefixer": "^10.4.21",
     "babel-plugin-react-dev-locator": "^1.0.0",
     "concurrently": "^9.2.0",
+    "esbuild": "0.27.0",
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",

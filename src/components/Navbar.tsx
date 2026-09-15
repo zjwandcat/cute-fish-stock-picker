@@ -1,6 +1,7 @@
 import { RefreshCw, Sun, Moon } from 'lucide-react';
 import { useStockStore } from '@/store/stockStore';
 import { useUIStore } from '@/store/uiStore';
+import DownloadMenu from './DownloadMenu';
 
 export default function Navbar() {
   const { lastRefresh, countdown, loading, refresh } = useStockStore();
@@ -17,7 +18,7 @@ export default function Navbar() {
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between px-6 transition-all duration-300"
+      className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between gap-2 px-3 md:px-6 transition-all duration-300"
       style={{
         background: dark
           ? 'linear-gradient(135deg, rgba(28, 28, 30, 0.85) 0%, rgba(44, 44, 46, 0.75) 100%)'
@@ -32,10 +33,10 @@ export default function Navbar() {
           : '0 4px 24px rgba(0, 0, 0, 0.06)',
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-2">
         <span className="text-2xl">🐟</span>
         <h1
-          className="text-lg font-bold tracking-wide"
+          className="truncate text-lg font-bold tracking-wide"
           style={{
             color: dark ? '#fff' : '#1c1c1e',
             fontFamily: '"Noto Sans SC", sans-serif',
@@ -45,11 +46,11 @@ export default function Navbar() {
         </h1>
       </div>
       <div
-        className={`flex items-center gap-4 ${fontSizeClass}`}
+        className={`flex shrink-0 items-center gap-1 md:gap-3 ${fontSizeClass}`}
         style={{ color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(60,60,67,0.6)' }}
       >
         {/* 字体大小调整 */}
-        <div className="flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-1">
           {(['small', 'medium', 'large'] as const).map((size) => (
             <button
               key={size}
@@ -99,7 +100,8 @@ export default function Navbar() {
           )}
         </button>
 
-        <span>
+        <DownloadMenu />
+        <span className="hidden xl:inline">
           更新于{' '}
           <span
             className="font-mono"
@@ -108,7 +110,7 @@ export default function Navbar() {
             {formatTime(lastRefresh)}
           </span>
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="hidden lg:flex items-center gap-1.5">
           <span
             className="inline-block w-2 h-2 rounded-full animate-pulse"
             style={{ background: '#34C759' }}

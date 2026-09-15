@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="可爱鱼儿选股指南下载。支持 Windows 10、Windows 11 和 macOS，内置运行环境，解压双击即可启动。" />
+    <title>下载 · 可爱鱼儿选股指南</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./download.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./download.html"><span aria-hidden="true">🐟</span> 可爱鱼儿选股指南</a>
+      <a class="repo" href="https://github.com/zjwandcat/cute-fish-stock-picker">GitHub ↗</a>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="eyebrow"><span></span> 你的桌面盯盘小助手</div>
+        <h1>选好自己的版本，<br />让小鱼儿陪你盯盘。</h1>
+        <p class="intro">实时行情、智能评分、持仓提醒。<br />在你的电脑上运行，熟悉的浏览器里打开。</p>
+        <a id="recommended" class="button primary" href="#versions">选择电脑系统 <span aria-hidden="true">↓</span></a>
+        <p id="detected" class="hint">支持 Windows 10 / 11 和 macOS</p>
+      </section>
+      <section id="versions" class="versions" aria-label="选择下载版本">
+        <article class="version-card">
+          <div class="platform-icon" aria-hidden="true">⊞</div><h2>Windows</h2>
+          <p>Windows 10 / Windows 11 · 64 位</p>
+          <a class="button secondary" href="https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-windows.zip">下载 Windows 10 / 11 版 <span aria-hidden="true">↓</span></a>
+          <small>ZIP 便携版 · 无需安装 Node.js</small>
+        </article>
+        <article class="version-card">
+          <div class="platform-icon" aria-hidden="true">⌘</div><h2>macOS</h2>
+          <p>macOS 11 及以上 · Apple 芯片 / Intel</p>
+          <a class="button secondary" href="https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-macos.zip">下载 macOS 版 <span aria-hidden="true">↓</span></a>
+          <small>ZIP 便携版 · 自动选择芯片版本</small>
+        </article>
+      </section>
+      <section class="getting-started" aria-labelledby="start-title">
+        <h2 id="start-title">三步，开始使用</h2>
+        <ol><li><b>下载并完整解压</b><span>选择系统版本，把整个文件夹解压到电脑上。</span></li><li><b>双击启动文件</b><span>Windows 打开 .bat，Mac 打开 .command，浏览器会自动启动。</span></li><li><b>填入 Tushare Token</b><span>首次在设置页保存 Token。此后双击即可打开。</span></li></ol>
+        <p class="note">运行时请保持启动窗口打开。Token 和持仓保存在本机用户目录，更新版本时会保留。<a href="https://tushare.pro/register" target="_blank" rel="noreferrer">申请 Tushare Token ↗</a></p>
+      </section>
+      <details><summary>首次打开时遇到系统提示？</summary><p>macOS 若拦截脚本，请在“系统设置 → 隐私与安全性”中查看提示并允许打开；较早的 macOS 也可以右键脚本选择“打开”。Windows 请先“全部解压”，再双击文件。确认下载来源为本项目后，按系统提示打开。详细说明见 <a href="https://github.com/zjwandcat/cute-fish-stock-picker/blob/main/docs/PORTABLE.zh-CN.md">使用文档</a>。</p></details>
+    </main>
+    <footer><span>🐟 可爱鱼儿选股指南 · 开源工具</span><a href="https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest">版本记录与校验文件 ↗</a></footer>
+    <script type="module" src="./download.js"></script>
+  </body>
+</html>

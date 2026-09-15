@@ -5,6 +5,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [简体中文](README.zh-CN.md) · **English**
 
+[**Download for Windows 10 / 11**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-windows.zip) · [**Download for macOS**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-macos.zip) · [**Download website**](https://zjwandcat.github.io/cute-fish-stock-picker/)
+
+Download a portable ZIP, extract it fully, and double-click the launcher. Node.js is included. Windows 10/11 share the x64 package; macOS 11+ supports both Apple Silicon and Intel automatically.
+
 ## Features
 
 - **Watchlist tracking** — add/remove stocks at runtime, auto-refresh quotes every 30 seconds
@@ -34,15 +38,15 @@
 
 ### Prerequisites
 
-- Node.js ≥ 18
+- Node.js ≥ 22 (source development only; portable downloads include it)
 - npm ≥ 9
 
 ### Install
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/zjwandcat/cute-fish-stock-picker.git
 cd cute-fish-stock-picker
-npm install
+npm ci
 ```
 
 ### Configure
@@ -52,6 +56,8 @@ Copy the environment template and fill in a real token:
 ```bash
 cp .env.example .env
 ```
+
+In Windows PowerShell, use `Copy-Item .env.example .env`.
 
 Edit `.env`:
 
@@ -82,11 +88,26 @@ npm run build       # type-check + build
 npm run check       # type-check only
 npm run lint        # ESLint
 npm run lint:fix    # ESLint autofix
+npm run build:local # build standalone frontend and backend
+npm run test:local  # startup, setup, persistence and archive tests
 ```
 
-### One-click startup (macOS)
+### One-click startup
 
-Double-click `启动选股指南.command` in the project root.
+Use the **Download** button on the project site or [GitHub Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest): Windows 10/11 users download the Windows ZIP, and macOS users download the macOS ZIP. Extract it fully, then double-click `启动选股指南.bat` (Windows) or `启动选股指南.command` (macOS). The portable packages include Node.js, so no runtime installation is needed.
+
+The first launch opens a setup page for your Tushare token. The token, holdings, settings, and cache are kept in the system user directory and survive upgrades. See [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md) for details.
+
+The public [download website](https://zjwandcat.github.io/cute-fish-stock-picker/) runs on GitHub Pages and distributes the program; stock services run on the user's computer. The existing Vercel app also shows a download menu after deployment.
+
+### Publish desktop packages
+
+Pushing a `v*` tag makes GitHub Actions package Windows and macOS on native runners, then publishes both ZIP files and SHA-256 checksums to the Release. Native runners are required because the archives include the official Node.js runtime.
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
 
 ## Project Structure
 
@@ -142,7 +163,7 @@ Double-click `启动选股指南.command` in the project root.
 - Unified EditorConfig (see `.editorconfig`)
 - Explicit `import type` for type-only imports
 
-> Runtime user data under `api/data/` (holdings, settings, bagholder50 cache) is gitignored and never committed. Configure the Tushare token via `.env` only. The bagholder50 cache performs a full build (~460 API calls, throttled at ~280 req/min with exponential backoff) on first use, then only ~10 incremental calls per day.
+> Development data under `api/data/` is gitignored; portable downloads use the system user directory. Configure the token on the setup page or through `.env` during development. Bagholder50 initially makes about 460 requests, throttled at 280/min, then about 10 incremental calls a day. Market data still requires network access and the relevant Tushare permissions.
 
 ## Disclaimer
 

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
-import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { DATA_DIRECTORY, dataFile } from '../services/dataDirectory.js';
 import axios from 'axios';
 import iconv from 'iconv-lite';
 
@@ -682,7 +682,7 @@ router.get('/watchlist', async (_req: Request, res: Response): Promise<void> => 
  * GET /api/holdings - 获取持仓记录
  * POST /api/holdings - 新增/更新持仓
  */
-const HOLDINGS_FILE = join(process.cwd(), 'api', 'data', 'holdings.json');
+const HOLDINGS_FILE = dataFile('holdings.json');
 
 router.get('/holdings', async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -714,7 +714,10 @@ router.post('/holdings', async (req: Request, res: Response): Promise<void> => {
       };
     };
 
-    const raw = await readFile(HOLDINGS_FILE, 'utf-8');
+    const raw = await readFile(HOLDINGS_FILE, 'utf-8').catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') return '{"holdings":[],"updated_at":""}';
+      throw err;
+    });
     const data = JSON.parse(raw) as { holdings: typeof holding[]; updated_at: string };
 
     const idx = data.holdings.findIndex((h) => h.ts_code === holding.ts_code);
@@ -727,6 +730,7 @@ router.post('/holdings', async (req: Request, res: Response): Promise<void> => {
     }
     data.updated_at = new Date().toISOString();
 
+    await mkdir(DATA_DIRECTORY, { recursive: true });
     await writeFile(HOLDINGS_FILE, JSON.stringify(data, null, 2), 'utf-8');
     res.json({ success: true, ...data });
   } catch (err) {
@@ -812,7 +816,7 @@ router.delete('/stocks/:code', (req: Request, res: Response): void => {
  * 以下为 TET(NAAIM 2025) + MACD-V(SSRN #4099617) 信号系统
  * ============================================================ */
 
-const SETTINGS_FILE = join(process.cwd(), 'api', 'data', 'settings.json');
+const SETTINGS_FILE = dataFile('settings.json');
 
 /** 股池变动/阈值调整后，失效全股池评分与信号缓存 */
 function invalidatePoolCaches(): void {
@@ -859,6 +863,7 @@ router.post('/settings', async (req: Request, res: Response): Promise<void> => {
       macdv: { strong: Math.round(strong), extreme: Math.round(extreme) },
       updated_at: new Date().toISOString(),
     };
+    await mkdir(DATA_DIRECTORY, { recursive: true });
     await writeFile(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf-8');
     invalidatePoolCaches(); // 立即失效回踩状态/信号/评分缓存
     res.json({ success: true, data });

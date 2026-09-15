@@ -14,6 +14,10 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      'build/**',
+      'release/**',
+      '.release-cache/**',
+      '.test-output/**',
       'node_modules/**',
       '.node/**',
       'api/dist/**',
@@ -86,7 +90,7 @@ export default tseslint.config(
 
   // 后端 Node 配置
   {
-    files: ['api/**/*.ts'],
+    files: ['api/**/*.ts', 'scripts/**/*.mjs', 'tests/**/*.mjs'],
     languageOptions: {
       globals: {
         ...globals.node,

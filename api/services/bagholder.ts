@@ -18,14 +18,14 @@
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { DATA_DIRECTORY, dataFile } from './dataDirectory.js';
 import axios from 'axios';
 import * as cache from './cache.js';
 import { isHK } from './realtime.js';
 
 const TUSHARE_API_URL = 'https://api.tushare.pro';
-const RAW_FILE = join(process.cwd(), 'api', 'data', 'bagholder_raw.json');
-const RESULT_FILE = join(process.cwd(), 'api', 'data', 'bagholder50.json');
+const RAW_FILE = dataFile('bagholder_raw.json');
+const RESULT_FILE = dataFile('bagholder50.json');
 
 const TOP_N = 50;
 const UNIVERSE_SIZE = 1000; // 市值前 1000（中证1000口径）
@@ -719,7 +719,7 @@ async function incrementRawStore(raw: RawStore, signalDate: string, _tradeDates:
 
 async function saveRawStore(raw: RawStore): Promise<void> {
   try {
-    await mkdir(join(process.cwd(), 'api', 'data'), { recursive: true });
+    await mkdir(DATA_DIRECTORY, { recursive: true });
     await writeFile(RAW_FILE, JSON.stringify(raw), 'utf-8');
   } catch (err) {
     console.error('[bagholder50] 写 raw 缓存失败:', (err as Error).message);

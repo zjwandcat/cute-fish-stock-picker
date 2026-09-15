@@ -1,0 +1,68 @@
+name: Build desktop downloads
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+          - platform: macos
+            runner: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - name: Build and package
+        run: npm run package:${{ matrix.platform }}
+      - name: Test production server and downloaded archive
+        run: npm run test:local
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cute-fish-stock-picker-${{ matrix.platform }}
+          path: |
+            release/cute-fish-stock-picker-${{ matrix.platform }}.zip
+            release/cute-fish-stock-picker-${{ matrix.platform }}.zip.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          pattern: cute-fish-stock-picker-*
+          merge-multiple: true
+      - name: Publish assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Windows 10/11 (x64) 与 macOS 11+ (Apple 芯片 / Intel) 便携版。
+            下载对应 ZIP，完整解压后双击启动文件，首次在浏览器填写 Tushare Token。
+            内置 Node.js，无需安装开发环境。持仓、设置和 Token 保存在本机用户目录。
+            这是未签名便携包，首次打开可能需要按系统提示允许。请参阅仓库使用说明。
+          files: |
+            release/cute-fish-stock-picker-windows.zip
+            release/cute-fish-stock-picker-windows.zip.sha256
+            release/cute-fish-stock-picker-macos.zip
+            release/cute-fish-stock-picker-macos.zip.sha256

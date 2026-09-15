@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>可爱鱼儿选股指南 · 首次设置</title>
+    <style>
+      :root { color: #1f2937; background: #faf9f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+      .card { width: min(100%, 520px); box-sizing: border-box; padding: 32px; border: 1px solid #e5e7eb; border-radius: 20px; background: #fff; box-shadow: 0 16px 60px #00000012; }
+      h1 { margin: 0 0 8px; font-size: 24px; } p { line-height: 1.65; color: #6b7280; } label { display: block; margin: 24px 0 8px; font-weight: 600; }
+      input { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font: inherit; }
+      button { width: 100%; margin-top: 16px; padding: 12px; border: 0; border-radius: 10px; color: white; background: #007aff; font: inherit; font-weight: 600; cursor: pointer; } button:disabled { opacity: .55; cursor: wait; }
+      #message { min-height: 1.6em; margin-top: 12px; font-size: 14px; } a { color: #007aff; }
+      @media (prefers-color-scheme: dark) { :root { color: #e6edf3; background: #0d1117; } .card { background: #161b22; border-color: #30363d; } input { color: #e6edf3; background: #0d1117; border-color: #30363d; } p { color: #a3acb8; } }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>🐟 欢迎使用可爱鱼儿选股指南</h1>
+      <p>首次使用需要配置 Tushare Token。Token 只保存在本机用户目录，不会上传到网站或提交到代码仓库。</p>
+      <p>还没有 Token？请到 <a href="https://tushare.pro/register" target="_blank" rel="noreferrer">Tushare 注册</a> 后，在个人中心复制。</p>
+      <form id="setup-form">
+        <label for="token">Tushare Token</label>
+        <input id="token" name="token" type="password" minlength="20" autocomplete="off" spellcheck="false" required placeholder="粘贴你的 Tushare Token" />
+        <button id="save" type="submit">保存并打开选股指南</button>
+        <div id="message" role="status"></div>
+      </form>
+    </main>
+    <script>
+      const form = document.getElementById('setup-form');
+      const token = document.getElementById('token');
+      const button = document.getElementById('save');
+      const message = document.getElementById('message');
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        button.disabled = true;
+        message.textContent = '正在保存…';
+        try {
+          const response = await fetch('/api/local/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token.value }) });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.error || '保存失败');
+          message.textContent = '保存成功，正在打开…';
+          window.location.assign('/');
+        } catch (error) {
+          message.textContent = error instanceof Error ? error.message : '保存失败，请重试。';
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

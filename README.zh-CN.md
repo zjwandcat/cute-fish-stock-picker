@@ -5,6 +5,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 **简体中文** · [English](README.md)
 
+[**下载 Windows 10 / 11 版**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-windows.zip) · [**下载 macOS 版**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-macos.zip) · [**自动选择系统 / 下载网站**](https://zjwandcat.github.io/cute-fish-stock-picker/)
+
+普通用户直接下载便携版，完整解压后双击启动文件即可；无需安装 Node.js。Windows 10/11 使用同一份 64 位程序，Mac 版自动支持 Apple 芯片与 Intel（macOS 11+）。
+
 ## 功能特性
 
 - **自选股盯盘** — 运行时增删股池，30 秒自动刷新行情
@@ -34,15 +38,15 @@
 
 ### 环境要求
 
-- Node.js ≥ 18
+- Node.js ≥ 22（仅源码开发需要；下载版已内置）
 - npm ≥ 9
 
 ### 安装
 
 ```bash
-git clone <repository-url>
-cd 可爱鱼儿选股指南
-npm install
+git clone https://github.com/zjwandcat/cute-fish-stock-picker.git
+cd cute-fish-stock-picker
+npm ci
 ```
 
 ### 配置
@@ -52,6 +56,8 @@ npm install
 ```bash
 cp .env.example .env
 ```
+
+Windows PowerShell 使用 `Copy-Item .env.example .env`。
 
 编辑 `.env`：
 
@@ -82,11 +88,26 @@ npm run build       # 类型检查 + 构建
 npm run check       # 仅类型检查
 npm run lint        # ESLint 检查
 npm run lint:fix    # ESLint 自动修复
+npm run build:local # 构建可独立运行的前后端
+npm run test:local  # 启动、配置、数据保存及发布包验证
 ```
 
-### 一键启动(macOS)
+### 一键启动
 
-双击项目根目录的 `启动选股指南.command` 即可启动。
+从项目网站的“下载”按钮，或 [GitHub Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest) 下载对应系统的 ZIP：Windows 10/11 下载 Windows 版，macOS 下载 macOS 版。完整解压后双击 `启动选股指南.bat`（Windows）或 `启动选股指南.command`（macOS）。便携包已经内置 Node.js，无需另行安装运行环境。
+
+首次启动会自动打开设置页，填写 Tushare Token。Token、持仓、设置和缓存保存在系统用户目录，升级程序不会覆盖。详细步骤见 [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md)。
+
+仓库首页上方也提供直接下载链接。公共 [下载网站](https://zjwandcat.github.io/cute-fish-stock-picker/) 由 GitHub Pages 提供，只分发程序；实时选股服务在用户电脑上运行。部署已有 Vercel 项目后，应用导航栏同样包含下载入口。
+
+### 发布桌面包
+
+推送 `v*` 标签会由 GitHub Actions 在 Windows 与 macOS 原生 runner 上分别打包，并将两个 ZIP 与 SHA-256 校验文件发布到 Release。由于包内包含官方 Node.js 运行时，构建必须在对应系统 runner 上完成。
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
 
 ## 项目结构
 
@@ -142,7 +163,7 @@ npm run lint:fix    # ESLint 自动修复
 - 统一 EditorConfig 配置（见 `.editorconfig`）
 - `import type` 显式标注类型导入
 
-> `api/data/` 下的运行时用户数据（持仓、设置、韭菜50缓存）已加入 .gitignore，不会提交；Tushare Token 请通过 `.env` 单独配置。韭菜50缓存首次使用时全量构建（约 460 次请求，节流 280 次/分钟 + 指数退避），之后每日仅约 10 次增量请求。
+> 源码开发的 `api/data/` 已加入 .gitignore；便携版数据位置详见使用说明。Token 使用设置页或开发用 `.env` 配置。韭菜50缓存首次构建约 460 次请求，节流 280 次/分钟，之后每日约 10 次增量请求；行情功能仍需要网络及相应 Tushare 权限。
 
 ## 风险提示
 
