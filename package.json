@@ -1,6 +1,6 @@
 {
   "name": "cute-fish-stock-picker",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "description": "可爱鱼儿选股指南 - 基于 Tushare 与新浪实时行情的 A 股自选股盯盘、评分与提醒工具",
   "license": "MIT",
