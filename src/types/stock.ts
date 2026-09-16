@@ -116,4 +116,36 @@ export interface Recommendation {
   next_day_adjust: number;
   risk_level: 'low' | 'medium' | 'high';
   reasons: string[];
+  raw_score?: number;
+  tier?: 'High' | 'Low' | 'Reserve';
+  weight?: number;
+  adjusted_weight?: number;
+  rank?: number;
+  summary?: string;
+  base_value?: number;
+  other_contribution?: number;
+  attribution?: string;
+  factor_contributions?: { name: string; value: number; contribution: number }[];
+  m3_action?: string;
+  m3_timing?: number;
+}
+
+export interface MonthlyReport {
+  status: 'ready' | 'stale' | 'unavailable' | 'error';
+  model: string;
+  scheme: string;
+  pipeline: string[];
+  data_as_of?: string;
+  recommendation_month?: string;
+  is_current?: boolean;
+  config: Record<string, string | number | boolean>;
+  core_factors: { name: string; impact: number; description: string }[];
+  high: Recommendation[];
+  low: Recommendation[];
+  message?: string;
+  timings?: Record<string, number>;
+  cache_hit?: boolean;
+  fingerprint?: string;
+  generated_at?: string;
+  barra_exposures?: Record<string, number>;
 }

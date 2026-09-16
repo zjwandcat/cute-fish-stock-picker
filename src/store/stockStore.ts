@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { StockQuote, StockDetail, DailyBar, NewsItem, Recommendation } from '@/types/stock';
+import type { StockQuote, StockDetail, DailyBar, NewsItem, Recommendation, MonthlyReport } from '@/types/stock';
 
 /** 今日推荐排序模式：capital=资金面综合评分 / tet=TET买入信号 / macdv=MACD-V买入信号 / double=双指标共振 */
 export type RecommendationMode = 'capital' | 'tet' | 'macdv' | 'double';
@@ -13,6 +13,10 @@ interface DetailData {
 interface StockState {
   stocks: StockQuote[];
   recommendations: Recommendation[];
+  monthlyRecommendations: Recommendation[];
+  monthlyReport: MonthlyReport | null;
+  monthlyLoading: boolean;
+  recommendationView: 'daily' | 'monthly';
   recommendationMode: RecommendationMode;
   selectedStock: string | null;
   detailData: DetailData | null;
@@ -21,6 +25,8 @@ interface StockState {
   loading: boolean;
   fetchStocks: () => Promise<void>;
   fetchRecommendations: () => Promise<void>;
+  fetchMonthlyRecommendations: () => Promise<void>;
+  setRecommendationView: (view: 'daily' | 'monthly') => void;
   setRecommendationMode: (mode: RecommendationMode) => void;
   selectStock: (code: string) => void;
   closeStock: () => void;
@@ -40,6 +46,10 @@ export const useStockStore = create<StockState>((set, get) => {
   return {
     stocks: [],
     recommendations: [],
+    monthlyRecommendations: [],
+    monthlyReport: null,
+    monthlyLoading: false,
+    recommendationView: 'daily',
     recommendationMode: 'capital',
     selectedStock: null,
     detailData: null,
@@ -69,6 +79,24 @@ export const useStockStore = create<StockState>((set, get) => {
         console.error('fetchRecommendations error:', err);
       }
     },
+    fetchMonthlyRecommendations: async () => {
+      if (get().monthlyLoading) return;
+      set({ monthlyLoading: true });
+      try {
+        const res = await fetch('/api/recommendations/monthly?limit=10');
+        const data = await res.json();
+        set({ monthlyRecommendations: data.data ?? [], monthlyReport: data.report ?? null });
+      } catch (err) {
+        console.error('fetchMonthlyRecommendations error:', err);
+        set({ monthlyRecommendations: [], monthlyReport: {
+          status: 'error', model: '10q Trial 157', scheme: 'scheme_b', pipeline: [],
+          config: {}, core_factors: [], high: [], low: [], message: '月度计算连接失败，请检查本机服务后重试。',
+        } });
+      } finally {
+        set({ monthlyLoading: false });
+      }
+    },
+    setRecommendationView: (view) => { set({ recommendationView: view }); if (view === 'monthly') get().fetchMonthlyRecommendations(); },
 
     setRecommendationMode: (mode: RecommendationMode) => {
       if (get().recommendationMode === mode) return;

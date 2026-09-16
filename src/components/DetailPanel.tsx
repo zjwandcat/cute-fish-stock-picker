@@ -174,7 +174,7 @@ export default function DetailPanel() {
 
       {/* 面板 - iOS 26 液态玻璃 */}
       <div
-        className={`fixed top-0 right-0 z-50 h-full w-[480px] overflow-y-auto transition-transform duration-500 ease-out ${
+        className={`fixed top-0 right-0 z-50 h-full w-[480px] max-w-full overflow-y-auto transition-transform duration-500 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{

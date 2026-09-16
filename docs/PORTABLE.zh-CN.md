@@ -28,3 +28,15 @@ Windows 版同时支持 Windows 10 和 Windows 11（x64，64 位）。macOS 11 �
 - **没有行情**：检查网络、Token 和 Tushare 对相应接口的权限。首次韭菜50构建需要较多请求，请等待缓存完成。
 
 这些 ZIP 是便携程序，不是已签名的 `.exe` 安装器或 `.dmg` 应用包。运行时仍需联网获取行情，但无需运行 `npm install` 或安装 Node.js。
+
+## 本月推荐
+
+“本月推荐”会按需调用本机的 10q 月度计算 bridge，运行时从 `output/21BB/p2/21BB_p2_study.db` 读取 `Trial 157`，固定深度等配置读取同目录的 p2 配置文件；同时使用 `scheme_b` M0 因子库和 M0 股票池筛选，执行一个月度预测窗口（M0 → M1 → M2 → M3 → M4），不使用 LLM。默认查找 `E:\10q\10q-202604gpu`；也可以设置 `TENQ_ROOT` 指向 10q 项目根目录。运行月度计算的 Python 环境需要 pandas、pyarrow、polars、LightGBM 和 XGBoost。
+
+报告会显示 M0 数据截至月份。如果 10q 数据没有更新到上月，系统会保留真实计算结果但标记为“数据过期”，不会把旧月份结果冒充当前月份。
+
+Windows 11 默认自动检测 NVIDIA CUDA，LightGBM 使用 CPU，XGBoost 在 CUDA 可用时加速，失败自动回到 CPU。设置 `TENQ_DEVICE=cpu` 可强制纯 CPU。默认画面显示十只股票和风控后的比例，股票名称双击打开行情详情，报告图标打开专业因子贡献。
+
+Python 运行环境与 10q 数据不包含在 Node.js 便携包内。可使用已安装的环境并设置 `TENQ_PYTHON`；或者在包目录执行 `py -3.12 scripts/setup-monthly.py` 创建专用 `.monthly-venv`。依赖检查使用 `py -3.12 scripts/setup-monthly.py --check`。推荐 Python 3.12，当前本机 Python 3.14 也已实跑通过。
+
+详细核验与算法限制见 `docs/MONTHLY-AUDIT.zh-CN.md`。本功能读取已生成的 M0 scheme_b 数据，不会自动下载补齐过期数据。

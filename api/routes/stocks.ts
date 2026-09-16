@@ -46,6 +46,8 @@ import {
   type BagholderStockStatus,
 } from '../services/bagholder.js';
 
+import { getMonthlyRecommendations } from '../services/monthlyRecommendations.js';
+
 const router = Router();
 
 /**
@@ -514,6 +516,22 @@ router.get('/recommendations', async (req: Request, res: Response): Promise<void
   } catch (err) {
     console.error('获取推荐失败:', err);
     res.json({ success: true, data: [] });
+  }
+});
+
+/** Monthly 10q portfolio. The bridge runs one real M0-M4 window and caches it. */
+router.get('/recommendations/monthly', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 10, 1), 10);
+    const result = await getMonthlyRecommendations(req.query.refresh === '1');
+    res.json({ ...result, data: result.data.slice(0, limit) });
+  } catch (err) {
+    console.error('获取月度 10q 推荐失败:', err);
+    res.json({ success: false, data: [], report: {
+      status: 'error', model: '10q 21BB p2 Trial 157', scheme: 'scheme_b', pipeline: [],
+      config: { trial: 157, llm: false }, core_factors: [], high: [], low: [],
+      message: `真实月度算法执行失败：${(err as Error).message}`,
+    }, error: 'MONTHLY_ALGORITHM_FAILED' });
   }
 });
 
