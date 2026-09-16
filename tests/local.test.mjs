@@ -32,6 +32,7 @@ async function exerciseServer(t, executable, entry, cwd, launcher) {
     ...process.env,
     CUTE_FISH_DATA_DIR: join(temporary, '用户数据'),
     CUTE_FISH_NO_BROWSER: '1',
+    CUTE_FISH_MONTHLY_AUTO: '0',
     TUSHARE_TOKEN: '',
     HTTP_PROXY: `http://127.0.0.1:${proxy.address().port}`,
     HTTPS_PROXY: `http://127.0.0.1:${proxy.address().port}`,

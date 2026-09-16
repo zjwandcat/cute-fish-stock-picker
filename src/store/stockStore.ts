@@ -25,7 +25,7 @@ interface StockState {
   loading: boolean;
   fetchStocks: () => Promise<void>;
   fetchRecommendations: () => Promise<void>;
-  fetchMonthlyRecommendations: () => Promise<void>;
+  fetchMonthlyRecommendations: (force?: boolean) => Promise<void>;
   setRecommendationView: (view: 'daily' | 'monthly') => void;
   setRecommendationMode: (mode: RecommendationMode) => void;
   selectStock: (code: string) => void;
@@ -79,13 +79,17 @@ export const useStockStore = create<StockState>((set, get) => {
         console.error('fetchRecommendations error:', err);
       }
     },
-    fetchMonthlyRecommendations: async () => {
+    fetchMonthlyRecommendations: async (force = false) => {
       if (get().monthlyLoading) return;
       set({ monthlyLoading: true });
       try {
-        const res = await fetch('/api/recommendations/monthly?limit=10');
+        const res = await fetch(`/api/recommendations/monthly?limit=10${force ? '&refresh=1' : ''}`);
         const data = await res.json();
-        set({ monthlyRecommendations: data.data ?? [], monthlyReport: data.report ?? null });
+        const parts = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit' })
+          .formatToParts(new Date());
+        const currentMonth = `${parts.find(part => part.type === 'year')!.value}${parts.find(part => part.type === 'month')!.value}`;
+        const ready = data.success && data.report?.status === 'ready' && data.report?.recommendation_month === currentMonth;
+        set({ monthlyRecommendations: ready ? data.data ?? [] : [], monthlyReport: data.report ?? null });
       } catch (err) {
         console.error('fetchMonthlyRecommendations error:', err);
         set({ monthlyRecommendations: [], monthlyReport: {

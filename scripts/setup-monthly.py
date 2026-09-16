@@ -45,9 +45,9 @@ def main():
         raise SystemExit("Monthly environment missing; run setup without --check.")
     if args.check:
         check_environment(python)
-    subprocess.run([str(python), "-c", "import numpy,pandas,scipy,pyarrow,polars,yaml,lightgbm,xgboost,psutil; print('Monthly CPU dependencies: OK')"], check=True)
+    subprocess.run([str(python), "-c", "import numpy,pandas,scipy,pyarrow,polars,yaml,lightgbm,xgboost,psutil,tushare,openpyxl; print('Monthly CPU dependencies: OK')"], check=True)
     print(f"Python: {python}")
-    print("Set TENQ_ROOT to your 10q checkout with scheme_b data and Trial 157 study files.")
+    print("Set TENQ_ROOT to your 10q checkout with Trial 157 study files. Missing M0 months are downloaded automatically.")
 
 
 if __name__ == "__main__":

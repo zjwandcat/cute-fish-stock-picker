@@ -31,6 +31,7 @@ try {
 // Import after setting the data directory; service paths are initialized at import time.
 const { default: api } = await import('./app.js');
 const { warmupBagholder50 } = await import('./services/bagholder.js');
+const { startMonthlyScheduler, warmupMonthlyRecommendations } = await import('./services/monthlyRecommendations.js');
 const configured = (): boolean => Boolean(process.env.TUSHARE_TOKEN && process.env.TUSHARE_TOKEN !== 'your_token_here');
 const local = express();
 let origin = '';
@@ -66,6 +67,7 @@ local.put('/api/local/config', async (req, res) => {
     process.env.TUSHARE_TOKEN = token.trim();
     res.json({ success: true });
     warmupBagholder50();
+    warmupMonthlyRecommendations();
   } catch {
     res.status(500).json({ success: false, error: '保存失败，请检查用户目录是否可写。' });
   }
@@ -114,6 +116,7 @@ server.once('listening', () => {
   console.log('Keep this window open. Press Ctrl+C to stop.');
   openBrowser(origin);
   if (configured()) warmupBagholder50();
+  startMonthlyScheduler();
 });
 server.on('error', async (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') {

@@ -72,6 +72,7 @@ await copyFile(join(root, 'build/server.mjs'), join(stage, 'build/server.mjs'));
 await copyFile(join(root, 'build/server.mjs.LEGAL.txt'), join(stage, 'build/server.mjs.LEGAL.txt'));
 await copyFile(join(root, 'monthly_recommendation_runner.py'), join(stage, 'monthly_recommendation_runner.py'));
 await copyFile(join(root, 'monthly_runtime.py'), join(stage, 'monthly_runtime.py'));
+await copyFile(join(root, 'monthly_data.py'), join(stage, 'monthly_data.py'));
 await copyFile(join(root, 'requirements-monthly.txt'), join(stage, 'requirements-monthly.txt'));
 await mkdir(join(stage, 'scripts'), { recursive: true });
 await copyFile(join(root, 'scripts/setup-monthly.py'), join(stage, 'scripts/setup-monthly.py'));

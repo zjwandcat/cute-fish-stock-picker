@@ -16,6 +16,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from monthly_runtime import configure_threads, configure_device, fingerprint, cache_path, write_cache
+from monthly_data import current_month, ensure_current_m0, progress, required_months
 
 configure_threads()
 
@@ -99,7 +100,7 @@ def _find_root() -> Path | None:
         if not raw:
             continue
         root = Path(raw).expanduser()
-        if (root / "config" / "config.yaml").exists() and (root / "data" / "pool_v2_scheme_b").is_dir():
+        if (root / "config" / "config.yaml").exists() and (root / "m0_database" / "pipeline.py").exists():
             return root.resolve()
     return None
 
@@ -231,14 +232,11 @@ def _load_recent_m0(root: Path, months_needed: int):
     import pandas as pd
     from m0_database.stock_filter import filter_stock_pool
 
-    current = datetime.now().strftime("%Y%m")
-    paths = sorted(p for p in (root / "data" / "pool_v2_scheme_b").glob("*.parquet")
-                   if len(p.stem) == 6 and p.stem.isdigit() and p.stem < current)
-    if len(paths) < months_needed:
-        raise RuntimeError(f"scheme_b M0 仅有 {len(paths)} 个月，Trial 157 至少需要 {months_needed} 个月")
-    selected = paths[-months_needed:]
-    if any(_next_month(a.stem) != b.stem for a, b in zip(selected, selected[1:])):
-        raise RuntimeError("M0 月份不连续，不能构建 Trial 157 窗口")
+    months = required_months(current_month(), months_needed - 1, 0)
+    selected = [root / "data/pool_v2_scheme_b" / f"{month}.parquet" for month in months]
+    missing = [path.stem for path in selected if not path.exists()]
+    if missing:
+        raise RuntimeError(f"M0 当前窗口不连续，缺少 {', '.join(missing)}；不能使用旧月份推荐")
     frames = []
     for path in selected:
         part = pd.read_parquet(path)
@@ -251,7 +249,7 @@ def _load_recent_m0(root: Path, months_needed: int):
     frame = pd.concat(frames, ignore_index=True)
     frame["trade_date"] = pd.to_datetime(frame["trade_date"])
     frame = frame.sort_values("trade_date").reset_index(drop=True)
-    return frame, paths[-1].stem, filter_stock_pool
+    return frame, selected[-1].stem, filter_stock_pool
 
 
 def _attributions(pred_df, portfolio, predictor, feature_cols, trial_params):
@@ -318,6 +316,7 @@ def _run(root: Path) -> dict:
     frame, latest_m0, stock_filter = _load_recent_m0(root, months_needed)
     timings["m0"] = round(time.perf_counter() - started, 3)
     mark = time.perf_counter()
+    progress("m1", "M1：构建 58 月训练、12 月验证及上月预测窗口")
     frame = LabelMaker().make_labels(frame)
     window = next(splitter.split(frame, copy=False))
     pred_raw = window["pred_df"]
@@ -328,6 +327,7 @@ def _run(root: Path) -> dict:
         raise RuntimeError(f"M0 stock_filter 后预测池仅 {len(pred_df)} 只股票，低于 M2 最低门槛")
 
     lgbm_params, xgb_params, feature_params = _assemble_params(trial_params)
+    progress("m2", "M2：Trial 157 因子筛选与双模型训练")
     feature_store = FeatureStore(**feature_params)
     train_p, val_p, pred_p, feature_cols = feature_store.fit_transform(
         window["train_df"], window["val_df"], pred_df
@@ -369,6 +369,7 @@ def _run(root: Path) -> dict:
     # M3 is applied to the same one-month M2 output. It is a risk signal only;
     # the requested ten M2 holdings and their High/Low weights are preserved.
     m3_map = {}
+    progress("m3", "M3：计算十股持仓与 TET 风控")
     try:
         from m3_engine.tet_engine import M3Config, TETEngine
         m3_config = M3Config.from_yaml(root / "config" / "config_m3.yaml")
@@ -388,6 +389,7 @@ def _run(root: Path) -> dict:
     mark = time.perf_counter()
 
     m4_status = "skipped"
+    progress("m4", "M4：计算双模型 TreeSHAP 及 Barra 暴露")
     try:
         from m4_report.attribution import barra_attribution
         # Future returns do not exist at decision time. Expose only Barra
@@ -446,14 +448,10 @@ def _run(root: Path) -> dict:
         })
 
     recommendation_month = _next_month(prediction["pred_month"])
-    current_month = datetime.now().strftime("%Y%m")
-    status = "ready" if recommendation_month == current_month else "stale"
+    if recommendation_month != current_month():
+        raise RuntimeError("预测结果不属于当前月份，拒绝展示过期持仓")
+    status = "ready"
     message = None
-    if status == "stale":
-        message = (
-            f"10q M0 scheme_b 最新数据截至 {prediction['pred_month']}，本次真实计算对应 {recommendation_month}；"
-            f"当前月份是 {current_month}，请先更新 M0 到上月，系统才会标记为本月结果。"
-        )
     high = [item for item in recommendations if item["tier"] == "High"]
     low = [item for item in recommendations if item["tier"] == "Low"]
     report = {
@@ -468,6 +466,9 @@ def _run(root: Path) -> dict:
             "trial": 157,
             "trial_source": trial_source,
             "train_months": train_months,
+            "history_start": required_months(recommendation_month, train_months)[0],
+            "history_end": latest_m0,
+            "data_update": "自动补数、断点续跑、公告日期校验",
             "validation_months": 12,
             "lgbm_estimators": trial_params["lgbm_n_estimators"],
             "xgb_estimators": trial_params["xgb_n_estimators"],
@@ -517,7 +518,8 @@ def main() -> None:
         print(json.dumps({"success": False, "data": [], "report": {
             "status": "unavailable", "model": "10q 21BB p2 Trial 157", "scheme": "scheme_b",
             "pipeline": [], "config": {"trial": 157, "llm": False}, "core_factors": [], "high": [], "low": [],
-            "message": "未找到 10q 项目或 scheme_b M0 数据。请设置 TENQ_ROOT。"
+            "recommendation_month": current_month(),
+            "message": "未找到 10q 算法项目。请设置 TENQ_ROOT，M0 数据将自动补齐。"
         }, "error": "TENQ_ROOT_NOT_FOUND"}, ensure_ascii=False))
         return
     try:
@@ -525,31 +527,40 @@ def main() -> None:
             sys.path.insert(0, str(root))
             os.chdir(root)
             params, _ = _load_trial_157(root)
+            progress("m0", "检查本月所需 M0 数据窗口")
+            data_started = time.perf_counter()
+            ensure_current_m0(root, int(params["train_months"]))
+            preparation_seconds = time.perf_counter() - data_started
             key = fingerprint(root, params)
             path = cache_path(key)
             result = None
             if "--refresh" not in sys.argv and path.exists():
                 try:
                     result = json.loads(path.read_text(encoding="utf-8"))
-                    if not result.get("success") or len(result.get("data", [])) != 10:
+                    if (not result.get("success") or len(result.get("data", [])) != 10
+                            or result.get("report", {}).get("recommendation_month") != current_month()):
                         result = None
                 except (OSError, ValueError):
                     pass
             hit = result is not None
             if result is None:
                 result = _run(root)
+                result["report"]["timings"]["data_preparation"] = round(preparation_seconds, 3)
                 result["report"]["fingerprint"] = key
                 write_cache(path, result)
             report = result["report"]
             report["cache_hit"] = hit
-            report["is_current"] = report["recommendation_month"] == datetime.now().strftime("%Y%m")
-            report["status"] = "ready" if report["is_current"] else "stale"
-            report["message"] = None if report["is_current"] else f"数据截至 {report['data_as_of']}，仅对应 {report['recommendation_month']} 持仓；请更新 M0 至上月。"
+            if report["recommendation_month"] != current_month():
+                raise RuntimeError("计算期间已跨月，将自动重新计算新月份")
+            report.update(is_current=True, status="ready", message=None)
+            progress("ready", f"{current_month()} 十股持仓计算完成")
         print(json.dumps(result, ensure_ascii=False, default=_json_value))
     except Exception as exc:
+        progress("error", str(exc))
         logging.error("monthly 10q run failed: %s\n%s", exc, traceback.format_exc())
         print(json.dumps({"success": False, "data": [], "report": {
             "status": "error", "model": "10q 21BB p2 Trial 157", "scheme": "scheme_b",
+            "recommendation_month": current_month(),
             "pipeline": ["M0", "M1", "M2", "M3", "M4"], "config": {"trial": 157, "llm": False},
             "core_factors": [], "high": [], "low": [], "message": f"真实月度算法执行失败：{exc}"
         }, "error": type(exc).__name__}, ensure_ascii=False))

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStockStore, type RecommendationMode } from '@/store/stockStore';
 import { useUIStore } from '@/store/uiStore';
 import type { MonthlyReport, Recommendation } from '@/types/stock';
@@ -37,6 +37,7 @@ const getReasonClass = (reason: string, dark: boolean) => {
 export default function RecommendSection() {
   const [reportOpen, setReportOpen] = useState(false);
   const [focusedStock, setFocusedStock] = useState<Recommendation | null>(null);
+  const closeReport = useCallback(() => { setReportOpen(false); setFocusedStock(null); }, []);
   const recommendations = useStockStore((s) => s.recommendations) ?? [];
   const monthlyRecommendations = useStockStore((s) => s.monthlyRecommendations) ?? [];
   const monthlyReport = useStockStore((s) => s.monthlyReport);
@@ -48,6 +49,12 @@ export default function RecommendSection() {
   const setRecommendationMode = useStockStore((s) => s.setRecommendationMode);
   const { theme } = useUIStore();
   const dark = theme === 'dark';
+  const monthlyUpdating = monthlyReport?.status === 'updating';
+  useEffect(() => {
+    if (recommendationView !== 'monthly') return;
+    const timer = setInterval(() => { void useStockStore.getState().fetchMonthlyRecommendations(); }, monthlyUpdating ? 3000 : 30000);
+    return () => clearInterval(timer);
+  }, [recommendationView, monthlyUpdating]);
 
   const cardBg = dark ? 'bg-[#161b22]' : 'bg-white';
   const border = dark ? 'border-[#30363d]' : 'border-[#e5e7eb]';
@@ -106,18 +113,21 @@ export default function RecommendSection() {
       )}
       {recommendationView === 'monthly' && (
         <div className="mb-3 flex justify-end">
-          <button type="button" aria-label="刷新月度数据" title="刷新月度数据" disabled={monthlyLoading}
-            onClick={() => useStockStore.getState().fetchMonthlyRecommendations()}
-            className={`p-2 ${textSecondary} disabled:opacity-40`}><RefreshCw size={16} className={monthlyLoading ? 'animate-spin' : ''} /></button>
+          <button type="button" aria-label="刷新月度数据" title="刷新月度数据" disabled={monthlyLoading || monthlyUpdating}
+            onClick={() => useStockStore.getState().fetchMonthlyRecommendations(true)}
+            className={`p-2 ${textSecondary} disabled:opacity-40`}><RefreshCw size={16} className={monthlyLoading || monthlyUpdating ? 'animate-spin' : ''} /></button>
         </div>
       )}
       <div className={recommendationView === 'monthly' ? 'grid grid-cols-1 gap-x-6 sm:grid-cols-2 xl:grid-cols-5' : 'flex gap-4 overflow-x-auto pb-3 scrollbar-thin'}>
-        {monthlyLoading && recommendationView === 'monthly' && (
-          <div className={`col-span-full w-full p-6 rounded-lg ${cardBg} border ${border} text-center text-sm ${textSecondary}`}>
-            正在运行 M0 → M1 → M2 → M3 → M4 月度计算…
+        {(monthlyLoading || monthlyUpdating) && isEmpty && recommendationView === 'monthly' && (
+          <div className={`col-span-full w-full py-6 text-center text-sm ${textSecondary}`}>
+            {monthlyReport?.progress?.total ? (
+              <progress className="mx-auto block h-2 w-full max-w-sm accent-emerald-500" aria-label="月度数据补齐进度"
+                value={monthlyReport.progress.completed ?? 0} max={monthlyReport.progress.total} />
+            ) : '正在准备本月持仓…'}
           </div>
         )}
-        {isEmpty && !monthlyLoading && (
+        {isEmpty && !monthlyLoading && !monthlyUpdating && (
           <div className={`col-span-full w-full p-6 rounded-lg ${cardBg} border ${border} text-center text-sm ${textSecondary}`}>
             {recommendationView === 'monthly' ? '当前没有可用的真实月度算法结果，请查看本月报告中的数据状态。' : '当前股池中没有 TET 与 MACD-V 同时发出买入信号的股票，可切换其他模式查看'}
           </div>
@@ -218,7 +228,7 @@ export default function RecommendSection() {
         ))}
       </div>
       {reportOpen && (
-        <MonthlyReportModal report={monthlyReport} focusedStock={focusedStock} dark={dark} onClose={() => { setReportOpen(false); setFocusedStock(null); }} />
+        <MonthlyReportModal report={monthlyReport} focusedStock={focusedStock} dark={dark} onClose={closeReport} />
       )}
     </section>
   );
@@ -319,6 +329,8 @@ function MonthlyReportModal({
                 <ReportMetric label="Trial" value={`#${String(report.config.trial ?? '—')}`} />
                 <ReportMetric label="训练窗口" value={`${String(report.config.train_months ?? '—')} 个月`} />
                 <ReportMetric label="验证窗口" value={`${String(report.config.validation_months ?? '—')} 个月`} />
+                <ReportMetric label="历史数据窗口" value={`${report.config.history_start ?? '—'} 至 ${report.config.history_end ?? '—'}`} />
+                <ReportMetric label="数据准备耗时" value={`${report.timings?.data_preparation ?? '—'} 秒`} />
                 <ReportMetric label="保留因子" value={String(report.config.selected_factors ?? '—')} />
                 <ReportMetric label="LightGBM 树数" value={String(report.config.lgbm_estimators ?? '—')} />
                 <ReportMetric label="XGBoost 树数" value={String(report.config.xgb_estimators ?? '—')} />
@@ -340,7 +352,7 @@ function MonthlyReportModal({
             </details>
             {report.status !== 'ready' && (
               <div className="mt-4 rounded-lg border border-[#f0b90b]/40 bg-[#f0b90b]/10 px-3 py-2 text-xs leading-5 text-[#a16207]">
-                {report.message ?? '当前结果不是最新月份，请先更新 10q 的 M0 数据。'}
+                {report.message ?? '正在自动准备当前月份所需的数据。'}
               </div>
             )}
             {!focusedStock && <div className="mt-5">

@@ -10,6 +10,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from monthly_data import current_month, required_months
 
 
 def configure_threads():
@@ -62,12 +63,12 @@ def configure_device():
 def fingerprint(root: Path, params: dict) -> str:
     digest = hashlib.sha256()
     digest.update(json.dumps(params, sort_keys=True).encode())
-    digest.update(f"{sys.version}|{platform.machine()}|{os.getenv('TENQ_DEVICE', 'auto')}|{datetime.now():%Y%m}".encode())
+    digest.update(f"{sys.version}|{platform.machine()}|{os.getenv('TENQ_DEVICE', 'auto')}|{current_month()}".encode())
     digest.update(str({key: os.environ.get(key) for key in (
         "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "POLARS_MAX_THREADS")}).encode())
     for package in ("numpy", "pandas", "pyarrow", "polars", "lightgbm", "xgboost", "scipy"):
         digest.update(f"{package}:{importlib.metadata.version(package)}".encode())
-    paths = [Path(__file__), Path(__file__).with_name("monthly_recommendation_runner.py")]
+    paths = [Path(__file__), Path(__file__).with_name("monthly_recommendation_runner.py"), Path(__file__).with_name("monthly_data.py")]
     for folder in ("config", "m0_database", "m1_engine", "m2_engine", "m3_engine", "m4_report"):
         paths.extend(p for p in (root / folder).rglob("*") if p.suffix in {".py", ".yaml"})
     paths.extend((root / "output/21BB/p2").glob("*config.json"))
@@ -76,7 +77,8 @@ def fingerprint(root: Path, params: dict) -> str:
         digest.update(path.read_bytes())
     # M0 files are immutable monthly artifacts. Detect replacements and new months
     # without re-reading hundreds of MB on every cache hit.
-    for path in sorted((root / "data/pool_v2_scheme_b").glob("*.parquet")):
+    for month in required_months(current_month(), int(params["train_months"])):
+        path = root / "data/pool_v2_scheme_b" / f"{month}.parquet"
         stat = path.stat()
         digest.update(f"{path.name}:{stat.st_size}:{stat.st_mtime_ns}".encode())
     return digest.hexdigest()

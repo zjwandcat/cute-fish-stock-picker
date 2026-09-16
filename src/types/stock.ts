@@ -131,7 +131,8 @@ export interface Recommendation {
 }
 
 export interface MonthlyReport {
-  status: 'ready' | 'stale' | 'unavailable' | 'error';
+  status: 'ready' | 'updating' | 'stale' | 'unavailable' | 'error';
+  progress?: { stage: string; message: string; completed?: number; total?: number; updated_at?: string };
   model: string;
   scheme: string;
   pipeline: string[];

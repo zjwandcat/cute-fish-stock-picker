@@ -3,6 +3,7 @@
  */
 import app from './app.js';
 import { warmupBagholder50 } from './services/bagholder.js';
+import { startMonthlyScheduler } from './services/monthlyRecommendations.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -10,6 +11,7 @@ const server = app.listen(PORT, () => {
   console.log(`Server ready on port ${PORT}`);
   // 韭菜50名单启动预热（首次全量构建约数百次API调用，之后每日增量；失败不阻塞）
   warmupBagholder50();
+  startMonthlyScheduler();
 });
 
 function shutdown(signal: string): void {
