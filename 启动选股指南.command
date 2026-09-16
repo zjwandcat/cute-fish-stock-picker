@@ -2,6 +2,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Finder's PATH omits native Homebrew; the managed venv takes precedence in Node.
+export PATH="/opt/homebrew/bin:/opt/homebrew/opt/python@3.12/bin:/usr/local/bin:$PATH"
+
 architecture="$(uname -m)"
 runtime="./runtime/darwin-${architecture}/bin/node"
 if [ "$architecture" = "x86_64" ]; then

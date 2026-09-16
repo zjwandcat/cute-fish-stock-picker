@@ -50,6 +50,16 @@ class MonthlyTests(unittest.TestCase):
         self.assertEqual(result["xgb"], "cpu")
         self.assertFalse(config._instance._cuda_available)
 
+    def test_macos_auto_stays_on_cpu_without_cuda_probe(self):
+        import types
+        config = type("GPUConfig", (), {})
+        module = types.ModuleType("m2_engine.gpu_detector")
+        module.GPUConfig = config
+        with patch.dict(os.environ, {"TENQ_DEVICE": "auto"}), patch.dict("sys.modules", {"m2_engine.gpu_detector": module}), patch("sys.platform", "darwin"), patch("subprocess.run") as run:
+            result = configure_device()
+        run.assert_not_called()
+        self.assertEqual(result["xgb"], "cpu")
+
     def test_atomic_cache_and_nonfinite_rejection(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "result.json"

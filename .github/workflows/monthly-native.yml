@@ -1,0 +1,43 @@
+name: Monthly native CPU demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-demo:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify Apple Silicon and OpenMP
+        if: runner.os == 'macOS'
+        run: |
+          test "$(uname -m)" = "arm64"
+          sw_vers
+          brew install libomp
+      - name: Create native monthly environment
+        run: python scripts/setup-monthly.py
+      - name: Windows CPU and model attribution checks
+        if: runner.os == 'Windows'
+        run: .monthly-venv/Scripts/python.exe -m unittest discover -s tests -p test_monthly.py
+      - name: Apple Silicon CPU and model attribution checks
+        if: runner.os == 'macOS'
+        run: |
+          .monthly-venv/bin/python -c "import platform; assert platform.machine() == 'arm64'"
+          .monthly-venv/bin/python -m unittest discover -s tests -p test_monthly.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:local
+      - run: npm run test:local

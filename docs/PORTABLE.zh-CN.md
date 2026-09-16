@@ -40,3 +40,16 @@ Windows 11 默认自动检测 NVIDIA CUDA，LightGBM 使用 CPU，XGBoost 在 CU
 Python 运行环境与 10q 数据不包含在 Node.js 便携包内。可使用已安装的环境并设置 `TENQ_PYTHON`；或者在包目录执行 `py -3.12 scripts/setup-monthly.py` 创建专用 `.monthly-venv`。依赖检查使用 `py -3.12 scripts/setup-monthly.py --check`。推荐 Python 3.12，当前本机 Python 3.14 也已实跑通过。
 
 详细核验与算法限制见 `docs/MONTHLY-AUDIT.zh-CN.md`。本功能读取已生成的 M0 scheme_b 数据，不会自动下载补齐过期数据。
+
+## macOS 月度功能 Demo
+
+月度功能优先面向 Apple Silicon ARM64、macOS 14 及以上（含当前新版系统），使用原生 CPU 库，不需要 Rosetta，不使用 CUDA/Metal。基础行情包的旧系统支持范围不代表月度机器学习依赖的支持范围。
+
+1. 安装原生 Python 3.12 和 OpenMP，例如 Homebrew 的 `brew install python@3.12 libomp`。
+2. 双击包内 `设置月度环境.command`，创建隔离环境并检查依赖。若提示依赖动态库缺失，先确认原生 `libomp` 已安装。
+3. 将完整 10q 项目放到 `~/10q` 或 `~/10q/10q-202604gpu`，包括 Python 模块、config、scheme_b 月度因子库以及 Trial 157 数据库和 p2 配置。也可把项目放到应用目录的 `tenq` 子目录，或通过 `TENQ_ROOT` 指定。
+4. 双击 `启动选股指南.command`。页面使用与 Windows 相同的十股推荐和专业归因。
+
+当前只有 Windows 真机测试；macOS 代码与依赖安装流程已经准备，但未在本机实际运行 macOS、也未宣称通过最新系统兼容认证。手动 CI `Monthly native CPU demo` 会在 `macos-latest` 检查 ARM64、原生 CPU 模型贡献与 Web 构建。本轮未上传 GitHub，因此该 CI 尚未执行。
+
+MacBook Air 到位后的验收：最新 macOS 上解压启动、ARM64 依赖安装、真实 Trial 157 单窗口、结果与 Windows 的排名比较、内存与耗时、睡眠恢复、中文路径、报告双击与窗口缩放。无真实 10q 数据的依赖 smoke test 不算完整选股验收。

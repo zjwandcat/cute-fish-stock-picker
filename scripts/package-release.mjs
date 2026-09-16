@@ -79,6 +79,11 @@ const launcher = platform === 'windows' ? '启动选股指南.bat' : '启动选�
 const launcherContent = await readFile(join(root, launcher), 'utf8');
 await writeFile(join(stage, launcher), platform === 'windows' ? launcherContent.replace(/\r?\n/g, '\r\n') : launcherContent.replaceAll('\r\n', '\n'));
 if (platform === 'macos') await chmod(join(stage, launcher), 0o755);
+if (platform === 'macos') {
+  const monthlySetup = '设置月度环境.command';
+  await copyFile(join(root, monthlySetup), join(stage, monthlySetup));
+  await chmod(join(stage, monthlySetup), 0o755);
+}
 await copyFile(join(root, 'LICENSE'), join(stage, 'LICENSE'));
 await copyFile(join(root, 'docs/PORTABLE.zh-CN.md'), join(stage, '使用说明.md'));
 const { version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
