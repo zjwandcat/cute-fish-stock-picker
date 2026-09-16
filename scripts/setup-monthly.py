@@ -1,10 +1,23 @@
 """Create an isolated native Python environment for the monthly engine."""
 import argparse
+import json
 import os
 import platform
 import subprocess
 import sys
 from pathlib import Path
+
+
+def check_environment(python: Path):
+    probe = subprocess.run(
+        [str(python), "-c", "import json,platform,sys; print(json.dumps({'system':platform.system(),'machine':platform.machine(),'version':list(sys.version_info[:2])}))"],
+        capture_output=True, text=True, check=True,
+    )
+    actual = json.loads(probe.stdout)
+    if actual["system"] != platform.system() or actual["machine"].lower() != platform.machine().lower():
+        raise SystemExit("Monthly environment belongs to another OS or architecture. Rename .monthly-venv and rerun setup using native Python.")
+    if not (3, 11) <= tuple(actual["version"]) <= (3, 14):
+        raise SystemExit("Monthly environment needs Python 3.11-3.14; rename .monthly-venv and rerun setup.")
 
 
 def main():
@@ -25,10 +38,13 @@ def main():
     if not args.check:
         if not python.exists():
             subprocess.run([sys.executable, "-m", "venv", str(environment)], check=True)
+        check_environment(python)
         subprocess.run([str(python), "-m", "pip", "install", "--only-binary=:all:",
                         "-r", str(root / "requirements-monthly.txt")], check=True)
     if not python.exists():
         raise SystemExit("Monthly environment missing; run setup without --check.")
+    if args.check:
+        check_environment(python)
     subprocess.run([str(python), "-c", "import numpy,pandas,scipy,pyarrow,polars,yaml,lightgbm,xgboost,psutil; print('Monthly CPU dependencies: OK')"], check=True)
     print(f"Python: {python}")
     print("Set TENQ_ROOT to your 10q checkout with scheme_b data and Trial 157 study files.")

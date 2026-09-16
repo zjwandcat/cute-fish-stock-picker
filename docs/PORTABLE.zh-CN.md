@@ -53,3 +53,5 @@ Python 运行环境与 10q 数据不包含在 Node.js 便携包内。可使用�
 当前只有 Windows 真机测试；macOS 代码与依赖安装流程已经准备，但未在本机实际运行 macOS、也未宣称通过最新系统兼容认证。手动 CI `Monthly native CPU demo` 会在 `macos-latest` 检查 ARM64、原生 CPU 模型贡献与 Web 构建。本轮未上传 GitHub，因此该 CI 尚未执行。
 
 MacBook Air 到位后的验收：最新 macOS 上解压启动、ARM64 依赖安装、真实 Trial 157 单窗口、结果与 Windows 的排名比较、内存与耗时、睡眠恢复、中文路径、报告双击与窗口缩放。无真实 10q 数据的依赖 smoke test 不算完整选股验收。
+
+2026-09-17 已在 Windows 上通过 pip 的交叉平台下载检查：Python 3.12 / macOS 14 ARM64 的全部依赖均有可下载的二进制 wheel（含 LightGBM、XGBoost 和 Polars 原生运行库）。这只证明依赖分发可用，不等同于 macOS 导入或运行成功。安装器现会拒绝其他架构的已有环境；安装失败时窗口保留具体错误。

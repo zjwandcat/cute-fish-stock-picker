@@ -11,6 +11,11 @@ if ! command -v "$python_command" >/dev/null 2>&1; then
   read -r -p "按回车退出..." _
   exit 1
 fi
-"$python_command" scripts/setup-monthly.py
+if ! "$python_command" scripts/setup-monthly.py; then
+  echo "月度环境安装失败，请查看上方错误。"
+  echo "若缺少 libomp，请执行 brew install libomp。若架构不一致，请使用原生 ARM64 Python。"
+  read -r -p "按回车退出..." _
+  exit 1
+fi
 echo "月度环境已就绪。10q 项目默认放在 ~/10q 或 ~/10q/10q-202604gpu。"
 read -r -p "按回车退出..." _

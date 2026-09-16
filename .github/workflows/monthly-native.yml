@@ -28,12 +28,12 @@ jobs:
         run: python scripts/setup-monthly.py
       - name: Windows CPU and model attribution checks
         if: runner.os == 'Windows'
-        run: .monthly-venv/Scripts/python.exe -m unittest discover -s tests -p test_monthly.py
+        run: .monthly-venv/Scripts/python.exe -m unittest discover -s tests -p "test_monthly*.py"
       - name: Apple Silicon CPU and model attribution checks
         if: runner.os == 'macOS'
         run: |
           .monthly-venv/bin/python -c "import platform; assert platform.machine() == 'arm64'"
-          .monthly-venv/bin/python -m unittest discover -s tests -p test_monthly.py
+          .monthly-venv/bin/python -m unittest discover -s tests -p 'test_monthly*.py'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
