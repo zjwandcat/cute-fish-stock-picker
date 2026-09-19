@@ -22,6 +22,7 @@ Download a portable ZIP, extract it fully, and double-click the launcher. Node.j
 - **Stock detail** — top-10 shareholders, capital flow, announcements/dividends, news
 - **Watchlist-backed signals** — `韭菜50` (Bagholder50) crowding avoid signal, a re-implementation of the bagholder50 index: four factors (20d price chase, turnover spike, dragon-tiger list count, ELG net flow) equally weighted via cross-sectional percentile ranks over the top-1000 A-share market cap universe; two states only (avoid = in Top50 / no signal). Locally cached with incremental daily updates; fail-closed when any of the four data sources is missing
 - **Market-data quality** — market value is selected from Tushare daily fundamentals and Tencent quotes, with trading-date fallback, CNY/HKD labeling, source/date status (`available`, `previous_close`, `stale`, `conflict`, `missing`), same-date cross-source checks, and a `/api/data-quality` audit endpoint
+- **Watchlist markers** — the watchlist table shows a green sprout for stocks on the `韭菜50` avoid list and a red dot for stocks in the current-month 10q portfolio; monthly status is polled every 30 seconds and every 3 seconds while the computation is running
 - **iOS 26 liquid-glass UI** — light/dark themes and adjustable font size
 
 ## Tech Stack

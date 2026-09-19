@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Circle, Sprout } from 'lucide-react';
 import { useStockStore } from '@/store/stockStore';
 import { useUIStore } from '@/store/uiStore';
 import type { StockQuote } from '@/types/stock';
@@ -66,6 +67,9 @@ export default function StockTable() {
   const selectStock = useStockStore((s) => s.selectStock);
   const addStock = useStockStore((s) => s.addStock);
   const removeStock = useStockStore((s) => s.removeStock);
+  const monthlyRecommendations = useStockStore((s) => s.monthlyRecommendations) ?? [];
+  const monthlyStatus = useStockStore((s) => s.monthlyReport?.status);
+  const fetchMonthlyRecommendations = useStockStore((s) => s.fetchMonthlyRecommendations);
 
   const { theme } = useUIStore();
   const dark = theme === 'dark';
@@ -80,6 +84,16 @@ export default function StockTable() {
 
   // 回踩状态（TET+MACD-V 两态判断，60秒刷新）
   const [pullbackMap, setPullbackMap] = useState<Record<string, PullbackStatus>>({});
+
+  // 自选表格也需要月度推荐标记；计算中缩短轮询间隔，完成后复用缓存检查月份变化。
+  useEffect(() => {
+    void fetchMonthlyRecommendations();
+    const timer = setInterval(
+      () => { void fetchMonthlyRecommendations(); },
+      monthlyStatus === 'updating' ? 3000 : 30000,
+    );
+    return () => clearInterval(timer);
+  }, [fetchMonthlyRecommendations, monthlyStatus]);
 
   // 全股池四种算法评分（排序用，60秒刷新）
   useEffect(() => {
@@ -131,6 +145,8 @@ export default function StockTable() {
             : s.macdv_score;
     return val ?? undefined;
   };
+
+  const monthlyRecommendationCodes = new Set(monthlyRecommendations.map((recommendation) => recommendation.ts_code));
 
   const handleAdd = async () => {
     const code = inputCode.trim();
@@ -255,8 +271,11 @@ export default function StockTable() {
               <th className="text-center py-3 px-5 font-medium" title="TET+MACD-V 各50%权重综合判断：值得回踩/不入场，悬停标签查看评分">
                 回踩状态
               </th>
-              <th className="text-center py-3 px-5 font-medium" title="韭菜50第三信号（冷西西指数算法复刻）：追涨热度/换手放大/龙虎榜注意力/特大单流量四因子拥挤度，进入A股市值前1000最易跑输Top50=卖出避雷，两态：卖出/无信号">
+              <th className="text-center py-3 px-5 font-medium" title="韭菜50信号：进入Top50避雷名单">
                 韭菜50
+              </th>
+              <th className="text-center py-3 px-5 font-medium" title="本月推荐：当前月份的真实月度算法结果">
+                本月推荐
               </th>
               <th className="text-right py-3 px-5 font-medium">PE(TTM)</th>
               <th className="text-right py-3 px-5 font-medium">PB</th>
@@ -282,6 +301,7 @@ export default function StockTable() {
                   key={stock.ts_code}
                   stock={stock}
                   pullback={pullbackMap[stock.ts_code]}
+                  isMonthlyRecommended={monthlyRecommendationCodes.has(stock.ts_code)}
                   isSelected={selectedStock === stock.ts_code}
                   onDoubleClick={() => selectStock(stock.ts_code)}
                   onRemove={(e) => handleRemove(e, stock.ts_code)}
@@ -291,7 +311,7 @@ export default function StockTable() {
             {stocks.length === 0 && (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={12}
                   className="text-center py-12"
                   style={{ color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(60,60,67,0.4)' }}
                 >
@@ -309,6 +329,7 @@ export default function StockTable() {
 function StockRow({
   stock,
   pullback,
+  isMonthlyRecommended,
   isSelected,
   onDoubleClick,
   onRemove,
@@ -316,6 +337,7 @@ function StockRow({
 }: {
   stock: StockQuote;
   pullback?: PullbackStatus;
+  isMonthlyRecommended: boolean;
   isSelected: boolean;
   onDoubleClick: () => void;
   onRemove: (e: React.MouseEvent) => void;
@@ -398,25 +420,18 @@ function StockRow({
         </span>
       </td>
       <td className="py-3 px-5 text-center">
-        <span
-          className="text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap"
-          style={
-            pullback?.bagholder === 'sell'
-              ? { color: '#FF3B30', borderColor: 'rgba(255, 59, 48, 0.4)', background: 'rgba(255, 59, 48, 0.1)' }
-              : { color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(60,60,67,0.5)', borderColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)', background: 'transparent' }
-          }
-          title={
-            pullback?.bagholder === 'sell'
-              ? `进入韭菜50避雷名单：韭菜分 ${(pullback.bagholder_score ?? 0).toFixed(3)}，池内百分位 ${pullback.bagholder_percentile ?? '--'}%，建议卖出`
-              : pullback?.bagholder_score !== undefined && pullback.bagholder_score !== null
-                ? `未进入韭菜50：韭菜分 ${pullback.bagholder_score.toFixed(3)}，池内百分位 ${pullback.bagholder_percentile ?? '--'}%，无信号`
-                : pullback?.bagholder === 'none'
-                  ? '未进入韭菜50（或不在A股市值前1000监控池），无信号'
-                  : '韭菜50信号计算中'
-          }
-        >
-          {pullback?.bagholder === 'sell' ? '卖出避雷' : pullback?.bagholder === 'none' ? '无信号' : '…'}
-        </span>
+        {pullback?.bagholder === 'sell' && (
+          <span className="inline-flex items-center justify-center" title="属于韭菜50信号：进入避雷名单" aria-label="属于韭菜50信号">
+            <Sprout size={18} strokeWidth={2.2} color="#34C759" fill="#34C759" />
+          </span>
+        )}
+      </td>
+      <td className="py-3 px-5 text-center">
+        {isMonthlyRecommended && (
+          <span className="inline-flex items-center justify-center" title="属于本月推荐" aria-label="属于本月推荐">
+            <Circle size={13} strokeWidth={1.5} color="#FF3B30" fill="#FF3B30" />
+          </span>
+        )}
       </td>
       <td
         className="py-3 px-5 text-right font-mono"
