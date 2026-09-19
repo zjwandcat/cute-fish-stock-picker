@@ -41,6 +41,7 @@ export const PRICE_OVERRIDE_JUN18: Record<string, PriceOverride> = {
  * 获取指定代码的价格覆盖。
  * 返回 null 表示使用 Tushare 原始数据。
  */
-export function getOverridePrice(tsCode: string): PriceOverride | null {
-  return PRICE_OVERRIDE_JUN18[tsCode] ?? null;
+export function getOverridePrice(_tsCode: string): PriceOverride | null {
+  // Historical manual snapshots must never masquerade as live market data.
+  return null;
 }

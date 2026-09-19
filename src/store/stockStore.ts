@@ -62,7 +62,7 @@ export const useStockStore = create<StockState>((set, get) => {
         const res = await fetch('/api/stocks');
         const data = await res.json();
         const stocks: StockQuote[] = Array.isArray(data) ? data : data.data ?? [];
-        stocks.sort((a, b) => b.total_mv - a.total_mv);
+        stocks.sort((a, b) => (b.total_mv ?? -1) - (a.total_mv ?? -1));
         set({ stocks });
       } catch (err) {
         console.error('fetchStocks error:', err);

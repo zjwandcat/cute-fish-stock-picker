@@ -4,11 +4,15 @@ import { useUIStore } from '@/store/uiStore';
 import type { StockQuote } from '@/types/stock';
 import ModeButton, { ALGO_TIPS } from './ModeButton';
 
-function formatMV(wanYuan: number): string {
+function formatMV(wanYuan: number | null): string {
   if (!wanYuan || wanYuan === 0) return '--';
   const yi = wanYuan / 10000;
   if (yi >= 10000) return (yi / 10000).toFixed(2) + '万亿';
   return yi.toFixed(2) + '亿';
+}
+
+function formatCurrency(currency: string | undefined): string {
+  return currency && currency !== 'CNY' ? ` ${currency}` : '';
 }
 
 function safeNum(val: number | undefined | null, decimals = 2): string {
@@ -267,11 +271,11 @@ export default function StockTable() {
               .sort((a, b) => {
                 const sa = sortScore(a.ts_code);
                 const sb = sortScore(b.ts_code);
-                if (sa === undefined && sb === undefined) return b.total_mv - a.total_mv;
+                if (sa === undefined && sb === undefined) return (b.total_mv ?? -1) - (a.total_mv ?? -1);
                 if (sa === undefined) return 1;
                 if (sb === undefined) return -1;
                 if (sb !== sa) return sb - sa;
-                return b.total_mv - a.total_mv;
+                return (b.total_mv ?? -1) - (a.total_mv ?? -1);
               })
               .map((stock) => (
                 <StockRow
@@ -436,7 +440,12 @@ function StockRow({
         className="py-3 px-5 text-right font-mono"
         style={{ color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(60,60,67,0.6)' }}
       >
-        {formatMV(stock.total_mv)}
+        <span title={stock.market_value ? `${stock.market_value.source ?? '无可用来源'} | ${stock.market_value.as_of ?? '无日期'} | ${stock.market_value.currency}` : undefined}>
+          {formatMV(stock.total_mv)}{formatCurrency(stock.market_value?.currency)}
+        </span>
+        {stock.market_value && ['conflict', 'missing', 'stale'].includes(stock.market_value.status) && <span className="block text-[10px] whitespace-nowrap">
+          {stock.market_value.status === 'conflict' ? '来源冲突' : stock.market_value.status === 'missing' ? '数据缺失' : '数据陈旧'}
+        </span>}
       </td>
       <td className="py-3 px-5 text-center">
         <button

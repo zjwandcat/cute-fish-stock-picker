@@ -114,6 +114,10 @@ function formatMV(wanYuan: number): string {
   return yi.toFixed(2) + '亿';
 }
 
+function formatCurrency(currency: string | undefined): string {
+  return currency && currency !== 'CNY' ? `（${currency}）` : '';
+}
+
 function formatNum(val: number | undefined | null, decimals = 2): string {
   if (val === undefined || val === null) return '--';
   return val.toFixed(decimals);
@@ -300,8 +304,8 @@ export default function DetailPanel() {
                   <GlassMetricCard label="PE(静态)" value={formatNum(detail?.pe_static)} dark={dark} />
                   <GlassMetricCard label="PB" value={formatNum(detail?.pb)} dark={dark} />
                   <GlassMetricCard label="ROE" value={detail?.roe ? `${detail.roe.toFixed(2)}%` : '--'} dark={dark} />
-                  <GlassMetricCard label="总市值" value={detail?.total_mv ? formatMV(detail.total_mv) : '--'} dark={dark} />
-                  <GlassMetricCard label="流通市值" value={detail?.circ_mv ? formatMV(detail.circ_mv) : '--'} dark={dark} />
+                  <GlassMetricCard label={`总市值${formatCurrency(detail?.market_value?.currency)}`} value={detail?.total_mv ? `${formatMV(detail.total_mv)}${detail?.market_value?.currency && detail.market_value.currency !== 'CNY' ? ` ${detail.market_value.currency}` : ''}` : '--'} dark={dark} />
+                  <GlassMetricCard label={`流通市值${formatCurrency(detail?.market_value?.currency)}`} value={detail?.circ_mv ? `${formatMV(detail.circ_mv)}${detail?.market_value?.currency && detail.market_value.currency !== 'CNY' ? ` ${detail.market_value.currency}` : ''}` : '--'} dark={dark} />
                 </div>
 
                 {/* 资金结构 */}

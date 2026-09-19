@@ -1,12 +1,13 @@
 import type { DailyBar, DailyBasic, Top10Holder, MoneyFlow } from './tushare.js';
 import type { RealtimeQuote } from './realtime.js';
+import { getToday } from './tushare.js';
 
 // ==================== 第1项：盘中实时数据注入 ====================
 // 把新浪实时行情作为"今日虚拟K线"附加到 bars 末尾，让算法感知盘中变化
 function injectRealtimeIntoBars(bars: DailyBar[], realtime: RealtimeQuote | null): DailyBar[] {
   if (!realtime || realtime.price <= 0) return bars;
-  const today = new Date();
-  const tradeDate = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+  const tradeDate = getToday();
+  if (realtime.trade_date !== tradeDate || realtime.open <= 0 || realtime.low <= 0 || realtime.high < realtime.price) return bars;
   const lastBar = bars[bars.length - 1];
 
   // 如果 bars 最后一条已经是今日，则替换；否则追加一条

@@ -1,3 +1,12 @@
+export interface MarketValueInfo {
+  value: number | null;
+  source: 'tushare' | 'tencent' | null;
+  as_of: string | null;
+  currency: 'CNY' | 'HKD';
+  status: 'available' | 'previous_close' | 'stale' | 'conflict' | 'missing';
+  checked_at: string;
+}
+
 export interface StockQuote {
   ts_code: string;
   name: string;
@@ -8,7 +17,8 @@ export interface StockQuote {
   pe_ttm: number;
   pb: number;
   volume_ratio: number;
-  total_mv: number;
+  total_mv: number | null;
+  market_value?: MarketValueInfo;
   turnover_rate: number;
 }
 
@@ -40,7 +50,8 @@ export interface StockDetail {
   pe_static: number;
   pb: number;
   roe: number;
-  total_mv: number;
+  total_mv: number | null;
+  market_value?: MarketValueInfo;
   circ_mv: number;
   inst_ratio: number;
   retail_ratio: number;

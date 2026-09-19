@@ -13,6 +13,7 @@ import * as cache from './cache.js';
 const CACHE_TTL_REALTIME = 30 * 1000;
 
 export interface RealtimeQuote {
+  trade_date?: string;
   ts_code: string;
   name: string;
   price: number;
@@ -134,8 +135,11 @@ export async function getSinaRealtimeQuotes(tsCodes: string[]): Promise<Realtime
       }
 
       const change = price - preClose;
+      const tradeDate = (sinaCode.startsWith('hk') ? data[17] ?? '' : data[30] ?? '').replace(/\D/g, '').slice(0, 8);
+      if (!tsCodes.includes(tsCode) || !Number.isFinite(price) || price <= 0) continue;
 
       results.push({
+        trade_date: tradeDate,
         ts_code: tsCode,
         name,
         price,
@@ -145,8 +149,8 @@ export async function getSinaRealtimeQuotes(tsCodes: string[]): Promise<Realtime
         low,
         change,
         pct_chg: +pctChg.toFixed(2),
-        vol: vol / 100, // 转换为手
-        amount: amount / 10000, // 转换为万元
+        vol: isHK(tsCode) ? vol : vol / 100,
+        amount: amount / 1000, // DailyBar uses thousands of currency units.
       });
     }
 

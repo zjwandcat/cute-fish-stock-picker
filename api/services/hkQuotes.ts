@@ -27,6 +27,7 @@ const CACHE_TTL_QUOTE = 30 * 1000; // 实时行情缓存30秒(随前端30秒刷�
 const CACHE_TTL_KLINE = 60 * 1000; // 日K线缓存60秒(当日实时量比足够)
 
 export interface HKQuote {
+  trade_date: string;
   ts_code: string;
   name: string;
   price: number;
@@ -101,6 +102,7 @@ export async function getHKQuotes(tsCodes: string[]): Promise<Map<string, HKQuot
       if (price <= 0) continue; // 停牌或异常数据跳过
 
       const quote: HKQuote = {
+        trade_date: (f[30] ?? '').replace(/\D/g, '').slice(0, 8),
         ts_code: fromTencentCode(match[1]),
         name: f[1],
         price,
@@ -231,6 +233,7 @@ export async function getHKBasics(tsCodes: string[]): Promise<Map<string, DailyB
 /** 港股行情适配为 RealtimeQuote(供评分算法注入盘中数据,单位与港股K线保持一致) */
 export function toRealtimeQuote(q: HKQuote): RealtimeQuote {
   return {
+    trade_date: q.trade_date,
     ts_code: q.ts_code,
     name: q.name,
     price: q.price,
@@ -246,7 +249,6 @@ export function toRealtimeQuote(q: HKQuote): RealtimeQuote {
 }
 
 /** 从行情推断交易日(YYYYMMDD);失败时用当天 */
-function getQuoteTradeDate(_q: HKQuote): string {
-  const now = new Date();
-  return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+function getQuoteTradeDate(q: HKQuote): string {
+  return q.trade_date;
 }

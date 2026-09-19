@@ -24,10 +24,14 @@ interface TushareResponse {
   };
 }
 
-async function request(apiName: string, params: Record<string, string> = {}, fields: string = ''): Promise<Record<string, unknown>[]> {
+const providerHealth = new Map<string, { status: string; checked_at: string; rows: number; code?: number }>();
+export function getTushareHealth() { return Object.fromEntries(providerHealth); }
+
+async function request(apiName: string, params: Record<string, string> = {}, fields: string = '', attempt = 0): Promise<Record<string, unknown>[]> {
   const TOKEN = getToken();
   if (!TOKEN || TOKEN === 'your_token_here') {
     console.warn('TUSHARE_TOKEN not set, returning empty data');
+    providerHealth.set(apiName, { status: 'unconfigured', checked_at: new Date().toISOString(), rows: 0 });
     return [];
   }
 
@@ -37,18 +41,21 @@ async function request(apiName: string, params: Record<string, string> = {}, fie
       token: TOKEN,
       params,
       fields,
-    });
+    }, { timeout: 12000 });
 
     const { code, msg, data } = resp.data;
     if (code !== 0) {
+      providerHealth.set(apiName, { status: 'provider_error', checked_at: new Date().toISOString(), rows: 0, code });
       console.warn(`Tushare API error [${apiName}]: ${msg}`);
       return [];
     }
 
     if (!data || !data.fields || !data.items) {
+      providerHealth.set(apiName, { status: 'invalid_response', checked_at: new Date().toISOString(), rows: 0 });
       return [];
     }
 
+    providerHealth.set(apiName, { status: data.items.length ? 'ok' : 'empty', checked_at: new Date().toISOString(), rows: data.items.length, code });
     return data.items.map((item) => {
       const row: Record<string, unknown> = {};
       data.fields.forEach((field, idx) => {
@@ -57,6 +64,12 @@ async function request(apiName: string, params: Record<string, string> = {}, fie
       return row;
     });
   } catch (err) {
+    const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+    if (attempt === 0 && (!status || status >= 500)) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return request(apiName, params, fields, 1);
+    }
+    providerHealth.set(apiName, { status: 'transport_error', checked_at: new Date().toISOString(), rows: 0 });
     console.error(`Tushare API request failed [${apiName}]:`, (err as Error).message);
     return [];
   }
@@ -98,7 +111,17 @@ export async function getDailyBars(tsCode: string, startDate: string, endDate: s
     amount: Number(r.amount) || 0,
   }));
 
-  cache.set(cacheKey, result, CACHE_TTL_DAILY);
+  result.sort((a, b) => a.trade_date.localeCompare(b.trade_date));
+  const dates = new Set<string>();
+  for (const bar of result) {
+    if (bar.ts_code !== tsCode || !/^\d{8}$/.test(bar.trade_date) || dates.has(bar.trade_date)
+      || bar.trade_date < startDate || bar.trade_date > endDate
+      || ![bar.open, bar.high, bar.low, bar.close].every(v => Number.isFinite(v) && v > 0)
+      || bar.high < Math.max(bar.open, bar.close, bar.low) || bar.low > Math.min(bar.open, bar.close)
+      || !Number.isFinite(bar.vol) || bar.vol < 0) return [];
+    dates.add(bar.trade_date);
+  }
+  if (result.length) cache.set(cacheKey, result, CACHE_TTL_DAILY);
   return result;
 }
 
@@ -117,154 +140,61 @@ export interface DailyBasic {
   circ_mv: number;
 }
 
+const BASIC_FIELDS = 'ts_code,trade_date,close,turnover_rate,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,total_mv,circ_mv';
+
+function parseBasic(r: Record<string, unknown>): DailyBasic | null {
+  if (!/^\d{8}$/.test(String(r.trade_date)) || !(Number(r.total_mv) > 0)
+    || !Number.isFinite(Number(r.total_mv)) || !(Number(r.close) > 0)) return null;
+  return Object.fromEntries(BASIC_FIELDS.split(',').map(field => [
+    field, field === 'ts_code' || field === 'trade_date' ? String(r[field]) : Number(r[field]) || 0,
+  ])) as unknown as DailyBasic;
+}
+
 export async function getDailyBasic(tsCode: string, tradeDate: string): Promise<DailyBasic | null> {
-  // 先尝试指定日期
-  const result = await getDailyBasicByDate(tsCode, tradeDate);
-  if (result) return result;
-
-  // 回退：不指定日期，获取最新一条
-  const cacheKey = `basic_latest_${tsCode}`;
-  const cached = cache.get<DailyBasic | null>(cacheKey);
-  if (cached !== null && cached !== undefined) return cached;
-
-  const rows = await request('daily_basic', { ts_code: tsCode },
-    'ts_code,trade_date,close,turnover_rate,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,total_mv,circ_mv');
-
-  if (rows.length === 0) {
-    cache.set(cacheKey, null, CACHE_TTL_BASIC);
-    return null;
-  }
-
-  // 取最后一条（最新）
-  const r = rows[rows.length - 1];
-  const latest: DailyBasic = {
-    ts_code: String(r.ts_code || ''),
-    trade_date: String(r.trade_date || ''),
-    close: Number(r.close) || 0,
-    turnover_rate: Number(r.turnover_rate) || 0,
-    pe: Number(r.pe) || 0,
-    pe_ttm: Number(r.pe_ttm) || 0,
-    pb: Number(r.pb) || 0,
-    ps: Number(r.ps) || 0,
-    ps_ttm: Number(r.ps_ttm) || 0,
-    dv_ratio: Number(r.dv_ratio) || 0,
-    total_mv: Number(r.total_mv) || 0,
-    circ_mv: Number(r.circ_mv) || 0,
-  };
-
-  cache.set(cacheKey, latest, CACHE_TTL_BASIC);
-  return latest;
+  return (await getDailyBasicBatch([tsCode], tradeDate)).get(tsCode) ?? null;
 }
 
-// 批量获取某天所有股票的 daily_basic，减少 API 调用次数
+const basicRequests = new Map<string, Promise<Map<string, DailyBasic>>>();
+
 export async function getDailyBasicBatch(tsCodes: string[], tradeDate: string): Promise<Map<string, DailyBasic>> {
-  const result = new Map<string, DailyBasic>();
-
-  // 先从缓存取
-  const missing: string[] = [];
-  for (const code of tsCodes) {
-    const cached = cache.get<DailyBasic>(`basic_${code}_${tradeDate}`);
-    if (cached) {
-      result.set(code, cached);
-    } else {
-      missing.push(code);
-    }
+  if (!tsCodes.length) return new Map();
+  // Share full-market requests across list, detail and alert consumers.
+  let pending = basicRequests.get(tradeDate);
+  if (!pending) {
+    pending = loadBasicMarket(tradeDate).finally(() => basicRequests.delete(tradeDate));
+    basicRequests.set(tradeDate, pending);
   }
-
-  if (missing.length === 0) return result;
-
-  // 尝试批量查询指定日期
-  const rows = await request('daily_basic', { trade_date: tradeDate },
-    'ts_code,trade_date,close,turnover_rate,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,total_mv,circ_mv');
-
-  const found = new Set<string>();
-  for (const r of rows) {
-    const code = String(r.ts_code || '');
-    if (missing.includes(code)) {
-      const basic: DailyBasic = {
-        ts_code: code,
-        trade_date: String(r.trade_date || ''),
-        close: Number(r.close) || 0,
-        turnover_rate: Number(r.turnover_rate) || 0,
-        pe: Number(r.pe) || 0,
-        pe_ttm: Number(r.pe_ttm) || 0,
-        pb: Number(r.pb) || 0,
-        ps: Number(r.ps) || 0,
-        ps_ttm: Number(r.ps_ttm) || 0,
-        dv_ratio: Number(r.dv_ratio) || 0,
-        total_mv: Number(r.total_mv) || 0,
-        circ_mv: Number(r.circ_mv) || 0,
-      };
-      result.set(code, basic);
-      cache.set(`basic_${code}_${tradeDate}`, basic, CACHE_TTL_BASIC);
-      found.add(code);
-    }
-  }
-
-  // 对仍然缺失的，查询这些股票最近一次的数据（1次API调用）
-  const stillMissing = missing.filter(c => !found.has(c));
-  if (stillMissing.length > 0) {
-    // 尝试查询最近 5 天的数据，覆盖这些股票
-    const recentDate = getDateNDaysAgo(5);
-    const fallbackRows = await request('daily_basic', { trade_date: recentDate },
-      'ts_code,trade_date,close,turnover_rate,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,total_mv,circ_mv');
-
-    for (const r of fallbackRows) {
-      const code = String(r.ts_code || '');
-      if (stillMissing.includes(code) && !result.has(code)) {
-        const basic: DailyBasic = {
-          ts_code: code,
-          trade_date: String(r.trade_date || ''),
-          close: Number(r.close) || 0,
-          turnover_rate: Number(r.turnover_rate) || 0,
-          pe: Number(r.pe) || 0,
-          pe_ttm: Number(r.pe_ttm) || 0,
-          pb: Number(r.pb) || 0,
-          ps: Number(r.ps) || 0,
-          ps_ttm: Number(r.ps_ttm) || 0,
-          dv_ratio: Number(r.dv_ratio) || 0,
-          total_mv: Number(r.total_mv) || 0,
-          circ_mv: Number(r.circ_mv) || 0,
-        };
-        result.set(code, basic);
-        cache.set(`basic_${code}_${tradeDate}`, basic, CACHE_TTL_BASIC);
-      }
-    }
-  }
-
-  return result;
+  const market = await pending;
+  return new Map(tsCodes.flatMap(code => market.has(code) ? [[code, market.get(code)!] as const] : []));
 }
 
-async function getDailyBasicByDate(tsCode: string, tradeDate: string): Promise<DailyBasic | null> {
-  const cacheKey = `basic_${tsCode}_${tradeDate}`;
-  const cached = cache.get<DailyBasic | null>(cacheKey);
-  if (cached !== null) return cached;
+export async function getRecentTradeDates(tradeDate: string): Promise<string[]> {
+  const key = `trade_dates_${tradeDate}`;
+  const cached = cache.get<string[]>(key);
+  if (cached) return cached;
+  const start = new Date(`${tradeDate.slice(0,4)}-${tradeDate.slice(4,6)}-${tradeDate.slice(6,8)}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - 40);
+  const rows = await request('trade_cal', { exchange: 'SSE', start_date: start.toISOString().slice(0,10).replace(/-/g,''), end_date: tradeDate, is_open: '1' }, 'cal_date,is_open');
+  const dates = [...new Set(rows.filter(r => Number(r.is_open) === 1).map(r => String(r.cal_date)))]
+    .filter(d => /^\d{8}$/.test(d) && d <= tradeDate).sort().reverse();
+  if (dates.length) cache.set(key, dates, CACHE_TTL_BASIC);
+  return dates;
+}
 
-  const rows = await request('daily_basic', { ts_code: tsCode, trade_date: tradeDate },
-    'ts_code,trade_date,close,turnover_rate,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,total_mv,circ_mv');
-
-  if (rows.length === 0) {
-    cache.set(cacheKey, null, CACHE_TTL_BASIC);
-    return null;
+async function loadBasicMarket(tradeDate: string): Promise<Map<string, DailyBasic>> {
+  const key = `basic_market_${tradeDate}`;
+  const cached = cache.get<Map<string, DailyBasic>>(key);
+  if (cached) return cached;
+  const dates = await getRecentTradeDates(tradeDate);
+  const result = new Map<string, DailyBasic>();
+  for (const date of (dates.length ? dates.slice(0, 3) : [tradeDate])) {
+    const rows = await request('daily_basic', { trade_date: date }, BASIC_FIELDS);
+    for (const row of rows) {
+      const basic = parseBasic(row);
+      if (basic && basic.trade_date === date && !result.has(basic.ts_code)) result.set(basic.ts_code, basic);
+    }
   }
-
-  const r = rows[0];
-  const result: DailyBasic = {
-    ts_code: String(r.ts_code || ''),
-    trade_date: String(r.trade_date || ''),
-    close: Number(r.close) || 0,
-    turnover_rate: Number(r.turnover_rate) || 0,
-    pe: Number(r.pe) || 0,
-    pe_ttm: Number(r.pe_ttm) || 0,
-    pb: Number(r.pb) || 0,
-    ps: Number(r.ps) || 0,
-    ps_ttm: Number(r.ps_ttm) || 0,
-    dv_ratio: Number(r.dv_ratio) || 0,
-    total_mv: Number(r.total_mv) || 0,
-    circ_mv: Number(r.circ_mv) || 0,
-  };
-
-  cache.set(cacheKey, result, CACHE_TTL_BASIC);
+  if (result.size) cache.set(key, result, CACHE_TTL_BASIC);
   return result;
 }
 
@@ -485,14 +415,15 @@ export async function getRealtimeQuotes(tsCodes: string[]): Promise<RealtimeQuot
 }
 
 function getToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date()).replace(/-/g, '');
 }
 
 function getDateNDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const today = getToday();
+  const d = new Date(`${today.slice(0,4)}-${today.slice(4,6)}-${today.slice(6,8)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0,10).replace(/-/g, '');
 }
 
 export { getToday, getDateNDaysAgo };

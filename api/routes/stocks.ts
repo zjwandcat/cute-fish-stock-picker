@@ -10,6 +10,7 @@ import {
   getDailyBars,
   getDailyBasic,
   getDailyBasicBatch,
+  getTushareHealth,
   getTop10Holders,
   getAnnouncements,
   getDividends,
@@ -45,10 +46,16 @@ import {
   getBagholderStatus,
   type BagholderStockStatus,
 } from '../services/bagholder.js';
-
 import { getMonthlyRecommendations } from '../services/monthlyRecommendations.js';
+import { getMarketValues } from '../services/marketValue.js';
 
 const router = Router();
+
+router.get('/data-quality', async (_req: Request, res: Response) => {
+  const values = await getMarketValues(STOCK_POOL.map(stock => stock.ts_code));
+  res.json({ success: true, checked_at: new Date().toISOString(), tushare: getTushareHealth(),
+    data: [...values].map(([ts_code, market_value]) => ({ ts_code, market_value })) });
+});
 
 /**
  * GET /api/stocks - 获取全部自选股实时行情
@@ -64,6 +71,7 @@ router.get('/stocks', async (_req: Request, res: Response): Promise<void> => {
       getHKBasics(codes.filter(isHK)),
     ]);
     for (const [code, basic] of hkBasicMap) basicMap.set(code, basic);
+    const marketValues = await getMarketValues(codes, basicMap);
 
     // 获取新浪实时行情(盘中实时更新)
     const realtimeMap = new Map<string, { price: number; change_pct: number }>();
@@ -101,7 +109,8 @@ router.get('/stocks', async (_req: Request, res: Response): Promise<void> => {
       }
 
       // total_mv 在 daily_basic 是万元,override 是亿元
-      const totalMv = basic?.total_mv ?? (override ? override.total_mv * 10000 : 0);
+      const marketValue = marketValues.get(stock.ts_code)!;
+      const totalMv = marketValue.value;
 
       results.push({
         ts_code: stock.ts_code,
@@ -114,6 +123,7 @@ router.get('/stocks', async (_req: Request, res: Response): Promise<void> => {
         pb: basic?.pb ?? override?.pb ?? 0,
         volume_ratio: +volumeRatio.toFixed(2),
         total_mv: totalMv,
+        market_value: marketValue,
         turnover_rate: basic?.turnover_rate ?? override?.turnover_rate ?? 0,
       });
     }
@@ -165,6 +175,7 @@ router.get('/stocks/:code/detail', async (req: Request, res: Response): Promise<
     ]);
 
     const override = getOverridePrice(code);
+    const marketValue = (await getMarketValues([code], basic ? new Map([[code, basic]]) : undefined)).get(code)!;
 
     // 只取最新财报期的十大股东(避免同一股东跨期重复)
     const latestEndDate = holders.length > 0
@@ -288,7 +299,8 @@ router.get('/stocks/:code/detail', async (req: Request, res: Response): Promise<
       pe_static: basic?.pe ?? 0,
       pb: override?.pb ?? basic?.pb ?? 0,
       roe,
-      total_mv: override ? override.total_mv * 10000 : (basic?.total_mv ?? 0),
+      total_mv: marketValue.value,
+      market_value: marketValue,
       circ_mv: basic?.circ_mv ?? 0,
       inst_ratio: +instRatio.toFixed(2),
       retail_ratio: retailRatio,
@@ -909,8 +921,9 @@ async function getBarsForSignals(tsCode: string): Promise<{ bars: DailyBar[]; re
   } catch {
     // ignore
   }
-  if (realtime && realtime.price > 0) {
-    const today = getToday();
+  if (realtime && realtime.price > 0 && realtime.trade_date === getToday()
+    && realtime.open > 0 && realtime.low > 0 && realtime.high >= realtime.price) {
+    const today = realtime.trade_date;
     const last = bars[bars.length - 1];
     if (last && last.trade_date === today) {
       bars[bars.length - 1] = {
