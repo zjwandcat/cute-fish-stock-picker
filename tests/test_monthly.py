@@ -44,7 +44,8 @@ class MonthlyTests(unittest.TestCase):
         config = type("GPUConfig", (), {})
         module = types.ModuleType("m2_engine.gpu_detector")
         module.GPUConfig = config
-        with patch.dict(os.environ, {"TENQ_DEVICE": "cpu"}), patch.dict("sys.modules", {"m2_engine.gpu_detector": module}), patch("subprocess.run") as run:
+        # macOS platform diagnostics invoke uname/file; isolate them from GPU probes.
+        with patch.dict(os.environ, {"TENQ_DEVICE": "cpu"}), patch.dict("sys.modules", {"m2_engine.gpu_detector": module}), patch("monthly_runtime.platform.platform", return_value="fixture"), patch("subprocess.run") as run:
             result = configure_device()
         run.assert_not_called()
         self.assertEqual(result["xgb"], "cpu")
@@ -55,7 +56,7 @@ class MonthlyTests(unittest.TestCase):
         config = type("GPUConfig", (), {})
         module = types.ModuleType("m2_engine.gpu_detector")
         module.GPUConfig = config
-        with patch.dict(os.environ, {"TENQ_DEVICE": "auto"}), patch.dict("sys.modules", {"m2_engine.gpu_detector": module}), patch("sys.platform", "darwin"), patch("subprocess.run") as run:
+        with patch.dict(os.environ, {"TENQ_DEVICE": "auto"}), patch.dict("sys.modules", {"m2_engine.gpu_detector": module}), patch("sys.platform", "darwin"), patch("monthly_runtime.platform.platform", return_value="fixture"), patch("subprocess.run") as run:
             result = configure_device()
         run.assert_not_called()
         self.assertEqual(result["xgb"], "cpu")

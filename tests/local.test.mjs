@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer, request as httpRequest } from 'node:http';
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { test } from 'node:test';
@@ -163,9 +163,15 @@ test('native release ZIP runs without system Node.js or development dependencies
     await rm(extraction, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 });
   };
   try {
-    const quote = value => `'${value.replaceAll("'", "''")}'`;
+    if (platform === 'windows') {
+      const quote = value => `'${value.replaceAll("'", "''")}'`;
+      const readable = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        `$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip=[IO.Compression.ZipFile]::OpenRead(${quote(archive)}); try { if ($zip.Entries.Count -lt 10) { throw 'Incomplete archive' } } finally { $zip.Dispose() }`],
+      { windowsHide: true, encoding: 'utf8' });
+      assert.equal(readable.status, 0, readable.stderr);
+    }
     const extracted = platform === 'windows'
-      ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath ${quote(archive)} -DestinationPath ${quote(extraction)}`], { windowsHide: true, encoding: 'utf8' })
+      ? spawnSync('tar.exe', ['-xf', archive, '-C', extraction], { windowsHide: true, encoding: 'utf8' })
       : spawnSync('ditto', ['-x', '-k', archive, extraction], { encoding: 'utf8' });
     assert.equal(extracted.status, 0, extracted.stderr);
     const root = join(extraction, `cute-fish-stock-picker-${platform}`);
@@ -189,8 +195,11 @@ test('native release ZIP runs without system Node.js or development dependencies
     }
     await exerciseServer(t, executable, entry, tmpdir(), launcher);
     if (platform === 'macos') {
+      const standalone = join(extraction, '独立应用位置');
+      await mkdir(standalone);
+      await rename(join(root, '可爱鱼儿选股指南.app'), join(standalone, '可爱鱼儿选股指南.app'));
       const report = join(extraction, 'gui-smoke.json');
-      const gui = spawn(executable, ['--smoke-gui'], { cwd: tmpdir(), stdio: 'ignore',
+      const gui = spawn(join(standalone, '可爱鱼儿选股指南.app/Contents/MacOS/CuteFish'), ['--smoke-gui'], { cwd: tmpdir(), stdio: 'ignore',
         env: { ...process.env, PATH: cleanPath, PORT: '0', TUSHARE_TOKEN: '', CUTE_FISH_NO_BROWSER: '1',
           CUTE_FISH_MONTHLY_AUTO: '0', CUTE_FISH_DATA_DIR: join(extraction, 'gui-data'),
           CUTE_FISH_GUI_TEST_REPORT: report } });

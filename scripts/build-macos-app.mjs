@@ -33,5 +33,5 @@ export async function buildMacApp(stage, version) {
   // An ad-hoc signature provides bundle integrity, not Developer ID trust or notarization.
   run('codesign', ['--force', '--sign', '-', app]);
   run('codesign', ['--verify', '--strict', app]);
-  run('lipo', ['-verify_arch', 'arm64', 'x86_64', binary]);
+  run('lipo', [binary, '-verify_arch', 'arm64', 'x86_64']);
 }
