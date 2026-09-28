@@ -149,6 +149,11 @@ static NSString *nodePath(void) {
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { return YES; }
 
+- (void)finishTermination:(id)sender {
+    if (self.smoke) fprintf(stderr, "GUI smoke: confirming termination\n");
+    [NSApp replyToApplicationShouldTerminate:YES];
+}
+
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
     if (self.smoke) fprintf(stderr, "GUI smoke: stopping server\n");
     self.quitting = YES;
@@ -159,7 +164,10 @@ static NSString *nodePath(void) {
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
             [self.server waitUntilExit];
             if (self.smoke) fprintf(stderr, "GUI smoke: server stopped\n");
-            dispatch_async(dispatch_get_main_queue(), ^{ [NSApp replyToApplicationShouldTerminate:YES]; });
+            // NSTerminateLater runs a modal loop. A termination request may
+            // already occupy the main dispatch queue, so reply via that loop.
+            [self performSelectorOnMainThread:@selector(finishTermination:) withObject:nil waitUntilDone:NO
+                modes:@[NSModalPanelRunLoopMode, NSRunLoopCommonModes]];
         });
         return NSTerminateLater;
     }
