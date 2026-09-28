@@ -81,14 +81,35 @@ await mkdir(join(payload, 'scripts'), { recursive: true });
 await copyFile(join(root, 'scripts/setup-monthly.py'), join(payload, 'scripts/setup-monthly.py'));
 
 // Install the locked production runtime at build time. Users never run npm.
-// The restricted sdk-minimal profile has no terminal/image/native-addon tools.
+// The restricted profile disables terminal tools but still needs its native loader.
 const aiRuntime = join(payload, 'ai-runtime');
 await mkdir(aiRuntime, { recursive: true });
 for (const file of ['package.json', 'package-lock.json']) await copyFile(join(root, file), join(aiRuntime, file));
 await copyFile(join(root, 'ai-runtime/fish-finance.cordis.yml'), join(aiRuntime, 'fish-finance.cordis.yml'));
 if (!process.env.npm_execpath) throw new Error('Run packaging through npm run package -- windows|macos');
-run(process.execPath, [process.env.npm_execpath, 'ci', '--prefix', aiRuntime, '--omit=dev', '--omit=optional',
+run(process.execPath, [process.env.npm_execpath, 'ci', '--prefix', aiRuntime, '--omit=dev',
   '--ignore-scripts', '--no-audit', '--no-fund']);
+if (platform === 'macos') {
+  // npm installs only the build host's optional binaries. A universal app also
+  // needs the other chip's locked binaries, including the Harness loader.
+  const lock = JSON.parse(await readFile(join(root, 'package-lock.json'), 'utf8'));
+  const otherArch = process.arch === 'arm64' ? 'x64' : 'arm64';
+  for (const [path, dependency] of Object.entries(lock.packages)) {
+    if (dependency.dev || !dependency.optional || !dependency.os?.includes('darwin') || !dependency.cpu?.includes(otherArch)) continue;
+    if (!dependency.resolved?.startsWith('https://registry.npmjs.org/') || !dependency.integrity?.startsWith('sha512-')) {
+      throw new Error(`Missing locked native dependency integrity: ${path}`);
+    }
+    const target = resolve(aiRuntime, path);
+    if (!target.startsWith(`${aiRuntime}${sep}`)) throw new Error('Invalid native dependency path');
+    const bytes = Buffer.from(await (await getResponse(dependency.resolved)).arrayBuffer());
+    const actual = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+    if (actual !== dependency.integrity) throw new Error(`Native dependency checksum mismatch: ${path}`);
+    const archive = join(cache, `${basename(path)}-${dependency.version}.tgz`);
+    await writeFile(archive, bytes);
+    await mkdir(target, { recursive: true });
+    run('tar', ['-xzf', archive, '-C', target, '--strip-components=1']);
+  }
+}
 const launcher = platform === 'windows' ? '启动选股指南.bat' : '启动选股指南.command';
 const launcherContent = await readFile(join(root, launcher), 'utf8');
 await writeFile(join(stage, launcher), platform === 'windows' ? launcherContent.replace(/\r?\n/g, '\r\n') : launcherContent.replaceAll('\r\n', '\n'));

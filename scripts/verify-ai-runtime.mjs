@@ -1,10 +1,12 @@
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const nativeTarget = process.platform === 'win32' ? `win32-${process.arch}-msvc` : `${process.platform}-${process.arch}`;
+await access(resolve(root, `ai-runtime/node_modules/node-addon-require-builtin-${nativeTarget}/package.json`));
 const home = await mkdtemp(resolve(tmpdir(), 'cute-fish-runtime-check-'));
 const harness = new DeepSeekHarness({
   cwd: home,
