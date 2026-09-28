@@ -5,6 +5,7 @@
   "description": "可爱鱼儿选股指南 - 基于 Tushare 与新浪实时行情的 A 股自选股盯盘、评分与提醒工具",
   "license": "MIT",
   "type": "module",
+  "packageManager": "npm@11.16.0",
   "author": "可爱鱼儿选股指南",
   "keywords": [
     "stock",
@@ -17,7 +18,8 @@
     "echarts"
   ],
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.23.2",
+    "npm": ">=11.16.0"
   },
   "scripts": {
     "client:dev": "vite",

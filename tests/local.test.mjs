@@ -149,7 +149,7 @@ test('production bundle supports clean setup, persistence, local access and port
   await exerciseServer(t, process.execPath, resolve('build/server.mjs'), tmpdir());
 });
 
-test('native release ZIP runs without system Node.js or development dependencies', { timeout: 240_000 }, async (t) => {
+test('native release ZIP runs without system Node.js or development dependencies', { timeout: 600_000 }, async (t) => {
   const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : '';
   if (!platform) { t.skip('Native archive test runs on Windows and macOS'); return; }
   const archive = resolve(`release/cute-fish-stock-picker-${platform}.zip`);

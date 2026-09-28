@@ -32,12 +32,14 @@ jobs:
       - name: Apple Silicon CPU and model attribution checks
         if: runner.os == 'macOS'
         run: |
-          .monthly-venv/bin/python -c "import platform; assert platform.machine() == 'arm64'"
-          .monthly-venv/bin/python -m unittest discover -s tests -p 'test_monthly*.py'
+          monthly_python="$HOME/Library/Application Support/Cute Fish Stock Picker/monthly-venv/bin/python"
+          "$monthly_python" -c "import platform; assert platform.machine() == 'arm64'"
+          "$monthly_python" -m unittest discover -s tests -p 'test_monthly*.py'
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.2
           cache: npm
+      - run: npm install --global npm@11.16.0
       - run: npm ci
       - run: npm run build:local
       - run: npm run test:local

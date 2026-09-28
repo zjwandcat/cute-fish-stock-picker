@@ -45,8 +45,8 @@ The Mac app is not Apple Developer ID signed or notarized. Its first launch may 
 
 ### Prerequisites
 
-- Node.js ≥ 22 (source development only; portable downloads include it)
-- npm ≥ 9
+- Node.js ≥ 22.23.2 (source development only; portable downloads include it)
+- npm ≥ 11.16.0 (CI pins 11.16.0 to match the lockfile)
 
 ### Install
 
