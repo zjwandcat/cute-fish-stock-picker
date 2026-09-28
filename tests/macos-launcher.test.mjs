@@ -36,6 +36,7 @@ test('native Mac window starts and quits its server', { skip: process.platform !
     assert.equal(code, 0, diagnostics);
     const result = JSON.parse(await readFile(report, 'utf8'));
     assert.equal(result.visible, true);
+    assert.ok(result.backgroundAlpha > 0.99);
     assert.ok((await readFile(`${report}.png`)).length > 1000);
     await assert.rejects(fetch(result.url, { signal: AbortSignal.timeout(2000) }));
   } finally { clearTimeout(timer); }

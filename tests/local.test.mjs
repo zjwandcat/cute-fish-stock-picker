@@ -207,6 +207,7 @@ test('native release ZIP runs without system Node.js or development dependencies
         assert.equal(code, 0, `Native AppKit launch/shutdown failed: ${diagnostics}`);
         const result = JSON.parse(await readFile(report, 'utf8'));
         assert.equal(result.visible, true);
+        assert.ok(result.backgroundAlpha > 0.99);
         await assert.rejects(fetch(`${result.url}/api/health`, { signal: AbortSignal.timeout(2000) }));
         await mkdir('.test-output', { recursive: true });
         await copyFile(`${report}.png`, '.test-output/macos-app.png');

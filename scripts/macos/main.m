@@ -14,6 +14,15 @@ static NSString *nodePath(void) {
         arm ? @"runtime/darwin-arm64/bin/node" : @"runtime/darwin-x64/bin/node"];
 }
 
+@interface FishContentView : NSView
+@end
+@implementation FishContentView
+- (void)drawRect:(NSRect)dirtyRect {
+    [NSColor.windowBackgroundColor setFill];
+    NSRectFill(dirtyRect);
+}
+@end
+
 @interface FishApp : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @property(strong) NSWindow *window;
 @property(strong) NSTextField *status;
@@ -52,6 +61,7 @@ static NSString *nodePath(void) {
     self.window.title = @"可爱鱼儿选股指南";
     self.window.delegate = self;
     self.window.releasedWhenClosed = NO;
+    self.window.contentView = [[FishContentView alloc] initWithFrame:NSMakeRect(0, 0, 440, 210)];
     NSTextField *title = [NSTextField labelWithString:@"可爱鱼儿选股指南"];
     title.font = [NSFont boldSystemFontOfSize:22];
     title.frame = NSMakeRect(24, 150, 392, 32);
@@ -109,12 +119,13 @@ static NSString *nodePath(void) {
                 if (app.smoke) {
                     fprintf(stderr, "GUI smoke: server ready\n");
                     NSString *report = NSProcessInfo.processInfo.environment[@"CUTE_FISH_GUI_TEST_REPORT"];
-                    NSDictionary *result = @{@"url": app.url, @"visible": @(app.window.visible)};
-                    NSData *json = [NSJSONSerialization dataWithJSONObject:result options:0 error:nil];
-                    if (![json writeToFile:report atomically:YES]) exit(2);
                     [app.window.contentView display];
                     NSBitmapImageRep *bitmap = [app.window.contentView bitmapImageRepForCachingDisplayInRect:app.window.contentView.bounds];
                     [app.window.contentView cacheDisplayInRect:app.window.contentView.bounds toBitmapImageRep:bitmap];
+                    NSDictionary *result = @{@"url": app.url, @"visible": @(app.window.visible),
+                        @"backgroundAlpha": @([bitmap colorAtX:10 y:10].alphaComponent)};
+                    NSData *json = [NSJSONSerialization dataWithJSONObject:result options:0 error:nil];
+                    if (![json writeToFile:report atomically:YES]) exit(2);
                     [[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}]
                         writeToFile:[report stringByAppendingString:@".png"] atomically:YES];
                     fprintf(stderr, "GUI smoke: snapshot saved, quitting\n");
