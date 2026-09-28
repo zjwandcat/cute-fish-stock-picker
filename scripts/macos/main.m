@@ -37,6 +37,7 @@ static NSString *nodePath(void) {
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
+    if (self.smoke) fprintf(stderr, "GUI smoke: application launched\n");
     NSMenu *menu = [NSMenu new];
     NSMenuItem *item = [NSMenuItem new];
     NSMenu *appMenu = [NSMenu new];
@@ -71,6 +72,7 @@ static NSString *nodePath(void) {
     [self.window center];
     [self.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
+    if (self.smoke) fprintf(stderr, "GUI smoke: window visible=%d\n", self.window.visible);
 
     self.pending = [NSMutableData data];
     self.output = [NSPipe pipe];
@@ -86,7 +88,7 @@ static NSString *nodePath(void) {
     self.server.standardInput = [NSFileHandle fileHandleWithNullDevice];
     self.server.standardOutput = self.output;
     // Do not persist API diagnostics or credentials in a second desktop log.
-    self.server.standardError = [NSFileHandle fileHandleWithNullDevice];
+    self.server.standardError = self.smoke ? [NSFileHandle fileHandleWithStandardError] : [NSFileHandle fileHandleWithNullDevice];
     __weak FishApp *weakSelf = self;
     self.output.fileHandleForReading.readabilityHandler = ^(NSFileHandle *handle) {
         NSData *data = handle.availableData;
@@ -105,6 +107,7 @@ static NSString *nodePath(void) {
                 app.status.stringValue = [NSString stringWithFormat:@"本机服务已就绪\n%@", app.url];
                 app.openButton.enabled = YES;
                 if (app.smoke) {
+                    fprintf(stderr, "GUI smoke: server ready\n");
                     NSString *report = NSProcessInfo.processInfo.environment[@"CUTE_FISH_GUI_TEST_REPORT"];
                     NSDictionary *result = @{@"url": app.url, @"visible": @(app.window.visible)};
                     NSData *json = [NSJSONSerialization dataWithJSONObject:result options:0 error:nil];
@@ -114,6 +117,7 @@ static NSString *nodePath(void) {
                     [app.window.contentView cacheDisplayInRect:app.window.contentView.bounds toBitmapImageRep:bitmap];
                     [[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}]
                         writeToFile:[report stringByAppendingString:@".png"] atomically:YES];
+                    fprintf(stderr, "GUI smoke: snapshot saved, quitting\n");
                     [NSApp terminate:nil];
                 }
             }
@@ -146,6 +150,7 @@ static NSString *nodePath(void) {
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { return YES; }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
+    if (self.smoke) fprintf(stderr, "GUI smoke: stopping server\n");
     self.quitting = YES;
     self.output.fileHandleForReading.readabilityHandler = nil;
     if (self.server.running) {
@@ -153,6 +158,7 @@ static NSString *nodePath(void) {
         // The local server has a bounded three-second graceful shutdown.
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
             [self.server waitUntilExit];
+            if (self.smoke) fprintf(stderr, "GUI smoke: server stopped\n");
             dispatch_async(dispatch_get_main_queue(), ^{ [NSApp replyToApplicationShouldTerminate:YES]; });
         });
         return NSTerminateLater;
@@ -169,10 +175,12 @@ int main(int argc, const char *argv[]) {
             execl(nodePath().fileSystemRepresentation, "node", "build/server.mjs", NULL);
             return 1;
         }
+        BOOL smoke = argc == 2 && strcmp(argv[1], "--smoke-gui") == 0;
+        if (smoke) fprintf(stderr, "GUI smoke: entering AppKit\n");
         NSApplication *app = [NSApplication sharedApplication];
         [app setActivationPolicy:NSApplicationActivationPolicyRegular];
-        FishApp *delegate = [FishApp new];
-        delegate.smoke = argc == 2 && strcmp(argv[1], "--smoke-gui") == 0;
+        __attribute__((objc_precise_lifetime)) FishApp *delegate = [FishApp new];
+        delegate.smoke = smoke;
         app.delegate = delegate;
         [app run];
     }

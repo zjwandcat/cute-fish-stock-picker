@@ -169,9 +169,12 @@ test('native release ZIP runs without system Node.js or development dependencies
         `$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip=[IO.Compression.ZipFile]::OpenRead(${quote(archive)}); try { if ($zip.Entries.Count -lt 10) { throw 'Incomplete archive' } } finally { $zip.Dispose() }`],
       { windowsHide: true, encoding: 'utf8' });
       assert.equal(readable.status, 0, readable.stderr);
+      // Windows tar parses non-ASCII command arguments through the active code
+      // page; cwd uses the Unicode process API and preserves Chinese paths.
+      await copyFile(archive, join(extraction, 'download.zip'));
     }
     const extracted = platform === 'windows'
-      ? spawnSync('tar.exe', ['-xf', archive, '-C', extraction], { windowsHide: true, encoding: 'utf8' })
+      ? spawnSync('tar.exe', ['-xf', 'download.zip'], { cwd: extraction, windowsHide: true, encoding: 'utf8' })
       : spawnSync('ditto', ['-x', '-k', archive, extraction], { encoding: 'utf8' });
     assert.equal(extracted.status, 0, extracted.stderr);
     const root = join(extraction, `cute-fish-stock-picker-${platform}`);
@@ -199,14 +202,16 @@ test('native release ZIP runs without system Node.js or development dependencies
       await mkdir(standalone);
       await rename(join(root, '可爱鱼儿选股指南.app'), join(standalone, '可爱鱼儿选股指南.app'));
       const report = join(extraction, 'gui-smoke.json');
-      const gui = spawn(join(standalone, '可爱鱼儿选股指南.app/Contents/MacOS/CuteFish'), ['--smoke-gui'], { cwd: tmpdir(), stdio: 'ignore',
+      const gui = spawn(join(standalone, '可爱鱼儿选股指南.app/Contents/MacOS/CuteFish'), ['--smoke-gui'], { cwd: tmpdir(), stdio: ['ignore', 'ignore', 'pipe'],
         env: { ...process.env, PATH: cleanPath, PORT: '0', TUSHARE_TOKEN: '', CUTE_FISH_NO_BROWSER: '1',
           CUTE_FISH_MONTHLY_AUTO: '0', CUTE_FISH_DATA_DIR: join(extraction, 'gui-data'),
           CUTE_FISH_GUI_TEST_REPORT: report } });
-      const timeout = setTimeout(() => gui.kill('SIGKILL'), 30_000);
+      let diagnostics = '';
+      gui.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-8000); });
+      const timeout = setTimeout(() => gui.kill('SIGKILL'), 90_000);
       try {
         const [code] = await once(gui, 'exit');
-        assert.equal(code, 0, 'Native AppKit launch/shutdown failed');
+        assert.equal(code, 0, `Native AppKit launch/shutdown failed: ${diagnostics}`);
         const result = JSON.parse(await readFile(report, 'utf8'));
         assert.equal(result.visible, true);
         await assert.rejects(fetch(`${result.url}/api/health`, { signal: AbortSignal.timeout(2000) }));

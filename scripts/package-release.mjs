@@ -24,8 +24,8 @@ await mkdir(payload, { recursive: true });
 const cache = resolve('.release-cache', nodeVersion);
 await mkdir(cache, { recursive: true });
 
-function run(command, args) {
-  const result = spawnSync(command, args, { stdio: 'inherit', windowsHide: true });
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, { stdio: 'inherit', windowsHide: true, ...options });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} exited with ${result.status}`);
 }
@@ -140,7 +140,7 @@ const zip = join(output, `${basename(stage)}.zip`);
 const pendingZip = join(output, `${basename(stage)}.pending.zip`);
 await rm(pendingZip, { force: true });
 if (platform === 'windows') {
-  run('tar.exe', ['-a', '-cf', pendingZip, '-C', output, basename(stage)]);
+  run('tar.exe', ['-a', '-cf', basename(pendingZip), basename(stage)], { cwd: output });
 } else {
   run('ditto', ['-c', '-k', '--keepParent', stage, pendingZip]);
 }
