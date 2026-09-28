@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { buildMacApp, macAppName } from './build-macos-app.mjs';
+import { createWindowsArchive } from './windows-archive.mjs';
 
 const platform = process.argv[2];
 if (!['windows', 'macos'].includes(platform)) throw new Error('Usage: npm run package -- windows|macos');
@@ -24,8 +25,8 @@ await mkdir(payload, { recursive: true });
 const cache = resolve('.release-cache', nodeVersion);
 await mkdir(cache, { recursive: true });
 
-function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { stdio: 'inherit', windowsHide: true, ...options });
+function run(command, args) {
+  const result = spawnSync(command, args, { stdio: 'inherit', windowsHide: true });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} exited with ${result.status}`);
 }
@@ -140,7 +141,7 @@ const zip = join(output, `${basename(stage)}.zip`);
 const pendingZip = join(output, `${basename(stage)}.pending.zip`);
 await rm(pendingZip, { force: true });
 if (platform === 'windows') {
-  run('tar.exe', ['-a', '-cf', basename(pendingZip), basename(stage)], { cwd: output });
+  createWindowsArchive(stage, pendingZip);
 } else {
   run('ditto', ['-c', '-k', '--keepParent', stage, pendingZip]);
 }

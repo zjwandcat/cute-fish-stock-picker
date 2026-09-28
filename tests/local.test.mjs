@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { test } from 'node:test';
 import { detectPlatform, downloads } from '../public/download-platform.js';
+import { extractWindowsArchive } from '../scripts/windows-archive.mjs';
 
 test('download selection covers Windows 10/11, Macs and mobile browsers', () => {
   assert.equal(detectPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'windows');
@@ -164,19 +165,11 @@ test('native release ZIP runs without system Node.js or development dependencies
   };
   try {
     if (platform === 'windows') {
-      const quote = value => `'${value.replaceAll("'", "''")}'`;
-      const readable = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-        `$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip=[IO.Compression.ZipFile]::OpenRead(${quote(archive)}); try { if ($zip.Entries.Count -lt 10) { throw 'Incomplete archive' } } finally { $zip.Dispose() }`],
-      { windowsHide: true, encoding: 'utf8' });
-      assert.equal(readable.status, 0, readable.stderr);
-      // Windows tar parses non-ASCII command arguments through the active code
-      // page; cwd uses the Unicode process API and preserves Chinese paths.
-      await copyFile(archive, join(extraction, 'download.zip'));
+      extractWindowsArchive(archive, extraction);
+    } else {
+      const extracted = spawnSync('ditto', ['-x', '-k', archive, extraction], { encoding: 'utf8' });
+      assert.equal(extracted.status, 0, extracted.stderr);
     }
-    const extracted = platform === 'windows'
-      ? spawnSync('tar.exe', ['-xf', 'download.zip'], { cwd: extraction, windowsHide: true, encoding: 'utf8' })
-      : spawnSync('ditto', ['-x', '-k', archive, extraction], { encoding: 'utf8' });
-    assert.equal(extracted.status, 0, extracted.stderr);
     const root = join(extraction, `cute-fish-stock-picker-${platform}`);
     assert.ok(!(await readdir(root)).some(file => ['.env', 'api', 'node_modules'].includes(file)));
     const launcher = join(root, platform === 'windows' ? '启动选股指南.bat' : '启动选股指南.command');
