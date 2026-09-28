@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer, request as httpRequest } from 'node:http';
-import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { test } from 'node:test';
@@ -96,6 +96,18 @@ async function exerciseServer(t, executable, entry, cwd, launcher) {
   assert.equal((await request('/download.html')).status, 200);
   assert.equal((await request('/config.json')).status, 404);
   assert.equal((await request('/api/unknown')).status, 404);
+  const aiConfig = await (await request('/api/ai/config')).json();
+  assert.equal(aiConfig.success, true);
+  assert.equal(aiConfig.data.enabled, false);
+  assert.equal(aiConfig.data.apiKeyConfigured, false);
+  const aiSaved = await request('/api/ai/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: false, apiKey: 'offline-ai-fixture', model: 'fixture-model' }) });
+  assert.equal(aiSaved.status, 200);
+  assert.ok(!(await aiSaved.text()).includes('offline-ai-fixture'));
+  // Saving the market token must preserve the separately configured AI settings.
+  assert.equal((await request('/api/local/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }) })).status, 200);
+  assert.equal((await (await request('/api/ai/config')).json()).data.apiKeyConfigured, true);
   const holding = { ts_code: '000001.SZ', name: '测试持仓', shares: 100, buy_price: 10 };
   const holdings = await (await request('/api/holdings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add', holding }) })).json();
   assert.equal(holdings.success, true);
@@ -107,6 +119,7 @@ async function exerciseServer(t, executable, entry, cwd, launcher) {
   const restarted = await start();
   assert.equal((await (await fetch(`${restarted.url}/api/local/config`)).json()).configured, true);
   assert.equal((await (await fetch(`${restarted.url}/api/holdings`)).json()).holdings[0].ts_code, holding.ts_code);
+  assert.equal((await (await fetch(`${restarted.url}/api/ai/config`)).json()).data.model, 'fixture-model');
   const busyPort = String(proxy.address().port);
   const collision = await start(busyPort);
   assert.notEqual(new URL(collision.url).port, busyPort);
@@ -136,29 +149,61 @@ test('production bundle supports clean setup, persistence, local access and port
   await exerciseServer(t, process.execPath, resolve('build/server.mjs'), tmpdir());
 });
 
-test('native release ZIP runs without system Node.js or node_modules', { timeout: 120_000 }, async (t) => {
+test('native release ZIP runs without system Node.js or development dependencies', { timeout: 240_000 }, async (t) => {
   const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : '';
   if (!platform) { t.skip('Native archive test runs on Windows and macOS'); return; }
   const archive = resolve(`release/cute-fish-stock-picker-${platform}.zip`);
-  if (!await stat(archive).catch(() => null)) { t.skip('Build the native release ZIP to run this test'); return; }
-  const extraction = await mkdtemp(join(tmpdir(), 'cute-fish-解压 & space-'));
-  const quote = value => `'${value.replaceAll("'", "''")}'`;
-  const extracted = platform === 'windows'
-    ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath ${quote(archive)} -DestinationPath ${quote(extraction)}`], { windowsHide: true, encoding: 'utf8' })
-    : spawnSync('ditto', ['-x', '-k', archive, extraction], { encoding: 'utf8' });
-  assert.equal(extracted.status, 0, extracted.stderr);
-  const root = join(extraction, `cute-fish-stock-picker-${platform}`);
-  assert.ok(!(await readdir(root)).some(file => ['.env', 'api', 'node_modules'].includes(file)));
-  const launcher = join(root, platform === 'windows' ? '启动选股指南.bat' : '启动选股指南.command');
-  assert.ok((await readFile(launcher, 'utf8')).includes('build'));
-  if (platform === 'macos') assert.ok((await stat(launcher)).mode & 0o111);
-  const runtime = platform === 'windows' ? join(root, 'runtime/win-x64/node.exe') : join(root, `runtime/darwin-${process.arch}/bin/node`);
-  try {
-    await exerciseServer(t, runtime, join(root, 'build/server.mjs'), root, launcher);
-  } finally {
-    t.after(async () => {
-      assert.ok(resolve(extraction).startsWith(`${resolve(tmpdir())}${sep}`));
-      await rm(extraction, { recursive: true, force: true });
-    });
+  if (!await stat(archive).catch(() => null)) {
+    assert.notEqual(process.env.CUTE_FISH_REQUIRE_ARCHIVE, '1', 'Release verification requires a freshly built ZIP');
+    t.skip('Build the native release ZIP to run this test'); return;
   }
+  const extraction = await mkdtemp(join(tmpdir(), 'cute-fish-解压 & space-'));
+  const cleanup = async () => {
+    assert.ok(resolve(extraction).startsWith(`${resolve(tmpdir())}${sep}`));
+    await rm(extraction, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 });
+  };
+  try {
+    const quote = value => `'${value.replaceAll("'", "''")}'`;
+    const extracted = platform === 'windows'
+      ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath ${quote(archive)} -DestinationPath ${quote(extraction)}`], { windowsHide: true, encoding: 'utf8' })
+      : spawnSync('ditto', ['-x', '-k', archive, extraction], { encoding: 'utf8' });
+    assert.equal(extracted.status, 0, extracted.stderr);
+    const root = join(extraction, `cute-fish-stock-picker-${platform}`);
+    assert.ok(!(await readdir(root)).some(file => ['.env', 'api', 'node_modules'].includes(file)));
+    const launcher = join(root, platform === 'windows' ? '启动选股指南.bat' : '启动选股指南.command');
+    const payload = platform === 'macos' ? join(root, '可爱鱼儿选股指南.app/Contents/Resources/app') : root;
+    assert.ok((await readFile(launcher, 'utf8')).includes(platform === 'macos' ? 'CuteFish' : 'build'));
+    if (platform === 'macos') assert.ok((await stat(launcher)).mode & 0o111);
+    const runtime = platform === 'windows' ? join(payload, 'runtime/win-x64/node.exe') : join(payload, `runtime/darwin-${process.arch}/bin/node`);
+    const cleanPath = platform === 'windows' ? join(process.env.SystemRoot, 'System32') : '/usr/bin:/bin';
+    const smoke = spawnSync(runtime, [join(payload, 'build/verify-ai-runtime.mjs')], { cwd: tmpdir(), timeout: 90_000,
+      windowsHide: true, encoding: 'utf8', env: { ...process.env, PATH: cleanPath, Path: cleanPath } });
+    assert.equal(smoke.status, 0, `${smoke.error || ''}\n${smoke.stderr}`);
+    assert.match(smoke.stdout, /no model request/);
+    const executable = platform === 'macos' ? join(root, '可爱鱼儿选股指南.app/Contents/MacOS/CuteFish') : runtime;
+    const entry = platform === 'macos' ? '--headless' : join(payload, 'build/server.mjs');
+    if (platform === 'macos') {
+      const signature = spawnSync('codesign', ['--verify', '--strict', join(root, '可爱鱼儿选股指南.app')], { encoding: 'utf8' });
+      assert.equal(signature.status, 0, signature.stderr);
+      for (const architecture of ['arm64', 'x64']) assert.ok((await stat(join(payload, `runtime/darwin-${architecture}/bin/node`))).mode & 0o111);
+    }
+    await exerciseServer(t, executable, entry, tmpdir(), launcher);
+    if (platform === 'macos') {
+      const report = join(extraction, 'gui-smoke.json');
+      const gui = spawn(executable, ['--smoke-gui'], { cwd: tmpdir(), stdio: 'ignore',
+        env: { ...process.env, PATH: cleanPath, PORT: '0', TUSHARE_TOKEN: '', CUTE_FISH_NO_BROWSER: '1',
+          CUTE_FISH_MONTHLY_AUTO: '0', CUTE_FISH_DATA_DIR: join(extraction, 'gui-data'),
+          CUTE_FISH_GUI_TEST_REPORT: report } });
+      const timeout = setTimeout(() => gui.kill('SIGKILL'), 30_000);
+      try {
+        const [code] = await once(gui, 'exit');
+        assert.equal(code, 0, 'Native AppKit launch/shutdown failed');
+        const result = JSON.parse(await readFile(report, 'utf8'));
+        assert.equal(result.visible, true);
+        await assert.rejects(fetch(`${result.url}/api/health`, { signal: AbortSignal.timeout(2000) }));
+        await mkdir('.test-output', { recursive: true });
+        await copyFile(`${report}.png`, '.test-output/macos-app.png');
+      } finally { clearTimeout(timeout); }
+    }
+  } finally { t.after(cleanup); }
 });

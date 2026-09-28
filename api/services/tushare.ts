@@ -13,6 +13,7 @@ const CACHE_TTL_BASIC = 5 * 60 * 1000; // 每日指标 5分钟
 const CACHE_TTL_HOLDER = 30 * 60 * 1000; // 股东 30分钟
 const CACHE_TTL_NEWS = 30 * 60 * 1000; // 新闻 30分钟
 const CACHE_TTL_QUOTE = 30 * 1000; // 实时行情 30秒
+const CACHE_TTL_STOCK_DIRECTORY = 12 * 60 * 60 * 1000;
 
 interface TushareResponse {
   request_id: string;
@@ -26,6 +27,23 @@ interface TushareResponse {
 
 const providerHealth = new Map<string, { status: string; checked_at: string; rows: number; code?: number }>();
 export function getTushareHealth() { return Object.fromEntries(providerHealth); }
+
+export interface StockDirectoryEntry { ts_code: string; name: string; market: 'A' | 'HK' }
+
+export async function getStockDirectory(): Promise<StockDirectoryEntry[]> {
+  const cached = cache.get<StockDirectoryEntry[]>('ai_stock_directory');
+  if (cached) return cached;
+  const [ashares, hkshares] = await Promise.all([
+    request('stock_basic', { list_status: 'L' }, 'ts_code,name'),
+    request('hk_basic', { list_status: 'L' }, 'ts_code,name'),
+  ]);
+  const directory = [
+    ...ashares.filter(row => typeof row.ts_code === 'string' && typeof row.name === 'string').map(row => ({ ts_code: String(row.ts_code), name: String(row.name), market: 'A' as const })),
+    ...hkshares.filter(row => typeof row.ts_code === 'string' && typeof row.name === 'string').map(row => ({ ts_code: String(row.ts_code), name: String(row.name), market: 'HK' as const })),
+  ];
+  if (directory.length) cache.set('ai_stock_directory', directory, CACHE_TTL_STOCK_DIRECTORY);
+  return directory;
+}
 
 async function request(apiName: string, params: Record<string, string> = {}, fields: string = '', attempt = 0): Promise<Record<string, unknown>[]> {
   const TOKEN = getToken();

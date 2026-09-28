@@ -16,8 +16,8 @@
     <main>
       <section class="hero">
         <div class="eyebrow"><span></span> 你的桌面盯盘小助手</div>
-        <h1>选好自己的版本，<br />让小鱼儿陪你盯盘。</h1>
-        <p class="intro">实时行情、智能评分、持仓提醒。<br />在你的电脑上运行，熟悉的浏览器里打开。</p>
+        <h1>可爱鱼儿选股指南</h1>
+        <p class="intro">A 股与港股行情、自选股、持仓提醒与 AI 研究。<br />在你的电脑上运行，在浏览器里查看。</p>
         <a id="recommended" class="button primary" href="#versions">选择电脑系统 <span aria-hidden="true">↓</span></a>
         <p id="detected" class="hint">支持 Windows 10 / 11 和 macOS</p>
       </section>
@@ -32,15 +32,16 @@
           <div class="platform-icon" aria-hidden="true">⌘</div><h2>macOS</h2>
           <p>macOS 11 及以上 · Apple 芯片 / Intel</p>
           <a class="button secondary" href="https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-macos.zip">下载 macOS 版 <span aria-hidden="true">↓</span></a>
-          <small>ZIP 便携版 · 自动选择芯片版本</small>
+          <small>ZIP 内含 .app · Apple 芯片 / Intel 通用</small>
         </article>
       </section>
       <section class="getting-started" aria-labelledby="start-title">
         <h2 id="start-title">三步，开始使用</h2>
-        <ol><li><b>下载并完整解压</b><span>选择系统版本，把整个文件夹解压到电脑上。</span></li><li><b>双击启动文件</b><span>Windows 打开 .bat，Mac 打开 .command，浏览器会自动启动。</span></li><li><b>填入 Tushare Token</b><span>首次在设置页保存 Token。此后双击即可打开。</span></li></ol>
-        <p class="note">运行时请保持启动窗口打开。Token 和持仓保存在本机用户目录，更新版本时会保留。<a href="https://tushare.pro/register" target="_blank" rel="noreferrer">申请 Tushare Token ↗</a></p>
+        <ol><li><b>下载并完整解压</b><span>选择系统版本。Mac 可将解压后的 .app 拖入“应用程序”。</span></li><li><b>双击打开</b><span>Mac 打开“可爱鱼儿选股指南.app”；Windows 打开“启动选股指南.bat”。</span></li><li><b>填入 Tushare Token</b><span>首次在浏览器设置页保存 Token。之后双击应用即可打开。</span></li></ol>
+        <p class="note">无需安装 Node.js、npm 或 Homebrew。Mac 关闭应用窗口或按 ⌘Q 即退出；Windows 关闭启动窗口即可。Token 和持仓保存在本机用户目录，更新版本会保留。<a href="https://tushare.pro/register" target="_blank" rel="noreferrer">申请 Tushare Token ↗</a></p>
       </section>
-      <details><summary>首次打开时遇到系统提示？</summary><p>macOS 若拦截脚本，请在“系统设置 → 隐私与安全性”中查看提示并允许打开；较早的 macOS 也可以右键脚本选择“打开”。Windows 请先“全部解压”，再双击文件。确认下载来源为本项目后，按系统提示打开。详细说明见 <a href="https://github.com/zjwandcat/cute-fish-stock-picker/blob/main/docs/PORTABLE.zh-CN.md">使用文档</a>。</p></details>
+      <details open><summary>Mac 首次打开的安全提示</summary><p>当前 .app 没有 Apple Developer ID 签名及公证。首次双击可能被拦截；请确认来自本项目，再到“系统设置 → 隐私与安全性”选择“仍要打开”。不需要关闭 Gatekeeper 或粘贴终端解锁命令。公司管理的 Mac 可能需要管理员批准。详细说明见 <a href="https://github.com/zjwandcat/cute-fish-stock-picker/blob/main/docs/PORTABLE.zh-CN.md">使用文档</a>。</p></details>
+      <details><summary>AI 研究和月度推荐是否直接可用？</summary><p>行情和日常盯盘无需开发环境，但需联网及相应 Tushare 权限。AI 研究运行时已内置，默认关闭，启用前需自行配置模型 API Key；请求会发送至你配置的服务商，并可能收费。10q 月度推荐是独立可选功能，需要 Python、完整 10q 项目和数据，不包含在即开即用范围内。</p></details>
     </main>
     <footer><span>🐟 可爱鱼儿选股指南 · 开源工具</span><a href="https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest">版本记录与校验文件 ↗</a></footer>
     <script type="module" src="./download.js"></script>

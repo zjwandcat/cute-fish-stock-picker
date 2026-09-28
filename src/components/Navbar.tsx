@@ -1,4 +1,5 @@
-import { RefreshCw, Sun, Moon } from 'lucide-react';
+import { RefreshCw, Sun, Moon, Bot } from 'lucide-react';
+import { useAiStore } from '@/store/aiStore';
 import { useStockStore } from '@/store/stockStore';
 import { useUIStore } from '@/store/uiStore';
 import DownloadMenu from './DownloadMenu';
@@ -50,6 +51,7 @@ export default function Navbar() {
         style={{ color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(60,60,67,0.6)' }}
       >
         {/* 字体大小调整 */}
+        <button type="button" title="AI 研究设置" aria-label="AI 研究设置" className="p-2 rounded-md hover:bg-black/10" onClick={() => useAiStore.getState().setSettingsOpen(true)}><Bot size={20} /></button>
         <div className="hidden md:flex items-center gap-1">
           {(['small', 'medium', 'large'] as const).map((size) => (
             <button

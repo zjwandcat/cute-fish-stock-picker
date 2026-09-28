@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { chmod, copyFile, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, join, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { buildMacApp, macAppName } from './build-macos-app.mjs';
 
 const platform = process.argv[2];
 if (!['windows', 'macos'].includes(platform)) throw new Error('Usage: npm run package -- windows|macos');
@@ -18,6 +19,8 @@ const stage = resolve(output, `cute-fish-stock-picker-${platform}`);
 if (!stage.startsWith(`${output}${sep}`)) throw new Error('Invalid staging directory');
 await rm(stage, { recursive: true, force: true });
 await mkdir(stage, { recursive: true });
+const payload = platform === 'macos' ? join(stage, macAppName, 'Contents', 'Resources', 'app') : stage;
+await mkdir(payload, { recursive: true });
 const cache = resolve('.release-cache', nodeVersion);
 await mkdir(cache, { recursive: true });
 
@@ -57,7 +60,7 @@ for (const target of targets) {
   } else {
     run('tar', ['-xzf', archive, '-C', cache]);
   }
-  const runtime = join(stage, 'runtime', target);
+  const runtime = join(payload, 'runtime', target);
   const nodeName = platform === 'windows' ? 'node.exe' : 'bin/node';
   await mkdir(platform === 'windows' ? runtime : join(runtime, 'bin'), { recursive: true });
   await copyFile(join(cache, name, nodeName), join(runtime, nodeName));
@@ -65,17 +68,27 @@ for (const target of targets) {
   if (platform === 'macos') await chmod(join(runtime, nodeName), 0o755);
 }
 
-// Allowlist package contents: never copy .env, api/data, source checkouts or node_modules.
-await cp(join(root, 'dist'), join(stage, 'dist'), { recursive: true });
-await mkdir(join(stage, 'build'));
-await copyFile(join(root, 'build/server.mjs'), join(stage, 'build/server.mjs'));
-await copyFile(join(root, 'build/server.mjs.LEGAL.txt'), join(stage, 'build/server.mjs.LEGAL.txt'));
-await copyFile(join(root, 'monthly_recommendation_runner.py'), join(stage, 'monthly_recommendation_runner.py'));
-await copyFile(join(root, 'monthly_runtime.py'), join(stage, 'monthly_runtime.py'));
-await copyFile(join(root, 'monthly_data.py'), join(stage, 'monthly_data.py'));
-await copyFile(join(root, 'requirements-monthly.txt'), join(stage, 'requirements-monthly.txt'));
-await mkdir(join(stage, 'scripts'), { recursive: true });
-await copyFile(join(root, 'scripts/setup-monthly.py'), join(stage, 'scripts/setup-monthly.py'));
+// Allowlist package contents: never copy .env, api/data or development node_modules.
+await cp(join(root, 'dist'), join(payload, 'dist'), { recursive: true });
+await mkdir(join(payload, 'build'));
+for (const file of ['server.mjs', 'server.mjs.LEGAL.txt', 'verify-ai-runtime.mjs']) {
+  await copyFile(join(root, 'build', file), join(payload, 'build', file));
+}
+for (const file of ['monthly_recommendation_runner.py', 'monthly_runtime.py', 'monthly_data.py', 'requirements-monthly.txt']) {
+  await copyFile(join(root, file), join(payload, file));
+}
+await mkdir(join(payload, 'scripts'), { recursive: true });
+await copyFile(join(root, 'scripts/setup-monthly.py'), join(payload, 'scripts/setup-monthly.py'));
+
+// Install the locked production runtime at build time. Users never run npm.
+// The restricted sdk-minimal profile has no terminal/image/native-addon tools.
+const aiRuntime = join(payload, 'ai-runtime');
+await mkdir(aiRuntime, { recursive: true });
+for (const file of ['package.json', 'package-lock.json']) await copyFile(join(root, file), join(aiRuntime, file));
+await copyFile(join(root, 'ai-runtime/fish-finance.cordis.yml'), join(aiRuntime, 'fish-finance.cordis.yml'));
+if (!process.env.npm_execpath) throw new Error('Run packaging through npm run package -- windows|macos');
+run(process.execPath, [process.env.npm_execpath, 'ci', '--prefix', aiRuntime, '--omit=dev', '--omit=optional',
+  '--ignore-scripts', '--no-audit', '--no-fund']);
 const launcher = platform === 'windows' ? '启动选股指南.bat' : '启动选股指南.command';
 const launcherContent = await readFile(join(root, launcher), 'utf8');
 await writeFile(join(stage, launcher), platform === 'windows' ? launcherContent.replace(/\r?\n/g, '\r\n') : launcherContent.replaceAll('\r\n', '\n'));
@@ -84,19 +97,32 @@ if (platform === 'macos') {
   const monthlySetup = '设置月度环境.command';
   await copyFile(join(root, monthlySetup), join(stage, monthlySetup));
   await chmod(join(stage, monthlySetup), 0o755);
+  await cp(join(payload, 'scripts'), join(stage, 'scripts'), { recursive: true });
+  await copyFile(join(root, 'requirements-monthly.txt'), join(stage, 'requirements-monthly.txt'));
 }
 await copyFile(join(root, 'LICENSE'), join(stage, 'LICENSE'));
 await copyFile(join(root, 'docs/PORTABLE.zh-CN.md'), join(stage, '使用说明.md'));
 const { version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-await writeFile(join(stage, 'version.json'), JSON.stringify({ version, platform, node: nodeVersion }, null, 2));
+const metadata = { version, platform, node: nodeVersion, macApp: platform === 'macos',
+  architectures: platform === 'macos' ? ['arm64', 'x64'] : ['x64'],
+  aiRuntime: 'bundled', appleNotarized: false };
+await writeFile(join(payload, 'version.json'), JSON.stringify(metadata, null, 2));
+if (platform === 'macos') {
+  await copyFile(join(payload, 'version.json'), join(stage, 'version.json'));
+  await buildMacApp(stage, version);
+}
+
+const nativeNode = join(payload, 'runtime', platform === 'windows' ? 'win-x64/node.exe' : `darwin-${process.arch}/bin/node`);
+run(nativeNode, [join(payload, 'build/verify-ai-runtime.mjs')]);
 
 const zip = join(output, `${basename(stage)}.zip`);
-await rm(zip, { force: true });
+const pendingZip = join(output, `${basename(stage)}.pending.zip`);
+await rm(pendingZip, { force: true });
 if (platform === 'windows') {
-  run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-    `Compress-Archive -LiteralPath ${psQuote(stage)} -DestinationPath ${psQuote(zip)} -CompressionLevel Optimal`]);
+  run('tar.exe', ['-a', '-cf', pendingZip, '-C', output, basename(stage)]);
 } else {
-  run('ditto', ['-c', '-k', '--keepParent', stage, zip]);
+  run('ditto', ['-c', '-k', '--keepParent', stage, pendingZip]);
 }
+await rename(pendingZip, zip);
 await writeFile(`${zip}.sha256`, `${await checksum(zip)}  ${basename(zip)}\n`);
 console.log(`Packaged ${zip}`);

@@ -7,9 +7,13 @@
 
 [**下载 Windows 10 / 11 版**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-windows.zip) · [**下载 macOS 版**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-macos.zip) · [**自动选择系统 / 下载网站**](https://zjwandcat.github.io/cute-fish-stock-picker/)
 
-普通用户直接下载便携版，完整解压后双击启动文件即可；无需安装 Node.js。Windows 10/11 使用同一份 64 位程序，Mac 版自动支持 Apple 芯片与 Intel（macOS 11+）。
+普通用户下载 ZIP 并完整解压：Mac 双击 **可爱鱼儿选股指南.app**，也可以把它单独拖入“应用程序”；Windows 双击 **启动选股指南.bat**。内置 Node.js 和受限 AI 运行时，无需安装 Node.js/npm。Windows 10/11 使用同一份 x64 程序，Mac 版支持 Apple 芯片与 Intel（macOS 11+）。
+
+当前 Mac 应用没有 Apple Developer ID 签名或公证。首次打开若被拦截，确认下载来源后在 **系统设置 → 隐私与安全性 → 仍要打开** 中批准，不要关闭 Gatekeeper。行情仍需联网和 Tushare Token；AI 及 10q 月度功能的独立要求见下文。
 
 ## 功能特性
+
+- **可选 AI 研究**：问题与标的识别、受限多角色会诊、证据引用、取消任务和用户控制的本地长期记忆。填写自己的模型 API Key 并启用后使用，不自动交易。
 
 - **自选股盯盘** — 运行时增删股池，30 秒自动刷新行情
 - **实时行情** — 新浪财经提供 A/H 股盘中行情，Tushare/腾讯提供历史与基本面回退；只有确认供应商交易日为当天时，实时数据才会注入 K 线
@@ -99,23 +103,27 @@ npm run test:local  # 本地启动、发布包及行情数据质量验证
 
 月度页面调用本机真实 10q 项目 bridge，并非 LLM 生成名单。请设置 `TENQ_ROOT`（或使用默认目录），准备 `Trial 157` 研究文件、`scheme_b` M0 因子库，以及包含 pandas、pyarrow、polars、LightGBM、XGBoost 的 Python 环境。程序按 Asia/Shanghai 当前月份检查数据，通过 Tushare 补齐缺失 M0 月份，执行一次当前 M0–M4 窗口，缓存中间数据，并通过 `/api/recommendations/monthly` 返回进度。
 
-Node.js 便携包不包含 10q 数据集或 Python 依赖。Windows 可运行 `py -3.12 scripts/setup-monthly.py` 创建 `.monthly-venv`；macOS Demo 面向原生 ARM64 CPU 环境。运行边界与算法限制见 [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md) 和 [`docs/MONTHLY-AUDIT.zh-CN.md`](docs/MONTHLY-AUDIT.zh-CN.md)。
+便携包不包含 10q 数据集或 Python 依赖。Windows 可运行 `py -3.12 scripts/setup-monthly.py` 创建 `.monthly-venv`；macOS 月度扩展面向 macOS 14+，需要原生 Python 3.12 与 OpenMP，环境保存在 `~/Library/Application Support/Cute Fish Stock Picker/monthly-venv`，不会修改 `.app` 内容。基础行情应用不需要 Python 或 Homebrew。运行边界与算法限制见 [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md) 和 [`docs/MONTHLY-AUDIT.zh-CN.md`](docs/MONTHLY-AUDIT.zh-CN.md)。
+
+### AI 研究（可选）
+
+点击机器人设置按钮，填写自己的模型地址、模型名及 API Key，明确启用后使用。下载包包含锁定依赖版本的受限 DeepSeek Harness，也支持配置兼容 OpenAI 格式的接口。用户问题、选取的金融证据及研究记忆会发送给配置的模型服务商，可能产生费用。金融数据依赖自身 Tushare 权限，缺失数据不会补造。密钥仅保存在本机配置，不随发布包上传。当前行为说明见 [`docs/AI-INTENT-CONSULTATION.zh-CN.md`](docs/AI-INTENT-CONSULTATION.zh-CN.md)。
 
 ### 一键启动
 
-从项目网站的“下载”按钮，或 [GitHub Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest) 下载对应系统的 ZIP：Windows 10/11 下载 Windows 版，macOS 下载 macOS 版。完整解压后双击 `启动选股指南.bat`（Windows）或 `启动选股指南.command`（macOS）。便携包已经内置 Node.js，无需另行安装运行环境。
+从 [下载网站](https://zjwandcat.github.io/cute-fish-stock-picker/) 或 [GitHub Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest) 下载对应 ZIP。完整解压后双击 `启动选股指南.bat`（Windows）或 `可爱鱼儿选股指南.app`（Mac）。Mac 应用有状态窗口、重新打开浏览器和退出按钮；保留 `.command` 入口供排查问题。无需另装 Node.js/npm。
 
 首次启动会自动打开设置页，填写 Tushare Token。Token、持仓、设置和缓存保存在系统用户目录，升级程序不会覆盖。详细步骤见 [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md)。
 
-仓库首页上方也提供直接下载链接。公共 [下载网站](https://zjwandcat.github.io/cute-fish-stock-picker/) 由 GitHub Pages 提供，只分发程序；实时选股服务在用户电脑上运行。部署已有 Vercel 项目后，应用导航栏同样包含下载入口。
+仓库首页也提供直接下载链接。公共 [下载网站](https://zjwandcat.github.io/cute-fish-stock-picker/) 只分发程序，实时选股服务在用户电脑上运行。本地“更多”菜单包含项目、下载网站和 Token 设置。AI 路由仅供本机使用，本次发布不代表 Vercel 托管 AI 服务。
 
 ### 发布桌面包
 
-推送 `v*` 标签会由 GitHub Actions 在 Windows 与 macOS 原生 runner 上分别打包，并将两个 ZIP 与 SHA-256 校验文件发布到 Release。由于包内包含官方 Node.js 运行时，构建必须在对应系统 runner 上完成。
+推送与版本号一致的 `v*` 标签，由 GitHub Actions 在 Windows、Apple Silicon 和 Intel macOS 上构建及测试，三项全部成功后才发布 Windows ZIP、双架构 Mac ZIP 和 SHA-256 校验文件。Mac 用户无需区分芯片下载。测试会解压最终 ZIP，移除系统 Node.js/npm 的 PATH，隔离用户数据，并验证 AI 运行时离线启动，不调用付费模型。这不等于 Gatekeeper、真实模型服务或真实 10q 数据验收。
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 ## 项目结构

@@ -1,6 +1,7 @@
 /** Production entry for the self-contained macOS and Windows downloads. */
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +9,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+process.env.CUTE_FISH_APP_ROOT = root;
+const buildId = createHash('sha256').update(await readFile(fileURLToPath(import.meta.url))).digest('hex').slice(0, 16);
 dotenv.config({ path: join(root, '.env'), quiet: true });
 
 const userDataRoot = process.platform === 'win32'
@@ -61,9 +64,8 @@ local.put('/api/local/config', async (req, res) => {
     return;
   }
   try {
-    const temporary = `${configPath}.tmp`;
-    await writeFile(temporary, JSON.stringify({ tushareToken: token.trim() }), { mode: 0o600 });
-    await rename(temporary, configPath);
+    const { updatePersistedConfig } = await import('./services/configStore.js');
+    await updatePersistedConfig(previous => ({ ...previous, tushareToken: token.trim() }));
     process.env.TUSHARE_TOKEN = token.trim();
     res.json({ success: true });
     warmupBagholder50();
@@ -73,7 +75,7 @@ local.put('/api/local/config', async (req, res) => {
   }
 });
 local.get('/api/health', (_req, res) => {
-  res.json({ success: true, application: 'cute-fish-stock-picker', configured: configured() });
+  res.json({ success: true, application: 'cute-fish-stock-picker', buildId, configured: configured() });
 });
 local.get('/setup', (_req, res) => {
   res.sendFile(join(root, 'dist', 'setup.html'));
@@ -113,7 +115,7 @@ server.once('listening', () => {
   if (!address || typeof address === 'string') return;
   origin = `http://127.0.0.1:${address.port}`;
   console.log(`Cute Fish Stock Picker: ${origin}`);
-  console.log('Keep this window open. Press Ctrl+C to stop.');
+  console.log(process.env.CUTE_FISH_DESKTOP === '1' ? 'Quit the desktop app to stop.' : 'Keep this window open. Press Ctrl+C to stop.');
   openBrowser(origin);
   if (configured()) warmupBagholder50();
   startMonthlyScheduler();
@@ -124,10 +126,15 @@ server.on('error', async (err: NodeJS.ErrnoException) => {
     const url = `http://127.0.0.1:${port}`;
     try {
       const response = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(2000) });
-      const health = await response.json() as { application?: string };
-      if (health.application === 'cute-fish-stock-picker') {
+      const health = await response.json() as { application?: string; buildId?: string };
+      // Only reuse a process running this exact build, including the AI fixes.
+      if (health.application === 'cute-fish-stock-picker' && health.buildId === buildId) {
+        console.log(`Cute Fish Stock Picker: ${url}`);
         openBrowser(url);
-        process.exit(0);
+        // The failed listen handle is still being closed by libuv on Windows.
+        // Exiting synchronously here can trigger UV_HANDLE_CLOSING assertions.
+        setTimeout(() => process.exit(0), 100).unref();
+        return;
       }
     } catch { /* An unrelated service may not provide a health endpoint. */ }
     // Pick a free port when another application owns the preferred port.

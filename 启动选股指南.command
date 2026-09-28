@@ -2,6 +2,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+if [ -d "./可爱鱼儿选股指南.app" ]; then
+  exec "./可爱鱼儿选股指南.app/Contents/MacOS/CuteFish" --headless
+fi
+
 # Finder's PATH omits native Homebrew; the managed venv takes precedence in Node.
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/python@3.12/bin:/usr/local/bin:$PATH"
 

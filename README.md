@@ -7,9 +7,13 @@
 
 [**Download for Windows 10 / 11**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-windows.zip) · [**Download for macOS**](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest/download/cute-fish-stock-picker-macos.zip) · [**Download website**](https://zjwandcat.github.io/cute-fish-stock-picker/)
 
-Download a portable ZIP, extract it fully, and double-click the launcher. Node.js is included. Windows 10/11 share the x64 package; macOS 11+ supports both Apple Silicon and Intel automatically.
+Download a portable ZIP and extract it fully. On Mac, open **可爱鱼儿选股指南.app** or drag it into Applications; on Windows, open **启动选股指南.bat**. Node.js and the restricted AI runtime are included. Windows 10/11 share the x64 package; macOS 11+ supports Apple Silicon and Intel automatically.
+
+The Mac app is not Apple Developer ID signed or notarized. Its first launch may require **System Settings > Privacy & Security > Open Anyway** after checking the download source. Do not disable Gatekeeper. A Tushare token and network access are required; AI and the external 10q monthly engine have separate requirements below.
 
 ## Features
+
+- **Optional AI research**: question and stock recognition, bounded specialist consultation, evidence references, cancellation, and user-controlled local memory. Disabled until you configure a model API key. The app does not execute trades.
 
 - **Watchlist tracking** — add/remove stocks at runtime, auto-refresh quotes every 30 seconds
 - **Real-time quotes** — Sina Finance intraday quotes for A/H shares, with Tushare/HK historical fallbacks; realtime data is only injected into a K-line when its provider date is today
@@ -99,23 +103,27 @@ npm run test:local  # local startup, release archive and data-quality tests
 
 The monthly view is a real local bridge to the external 10q project; it is not an LLM-generated list. Set `TENQ_ROOT` (or place the checkout at the default location) and provide the `Trial 157` study files, `scheme_b` M0 factor data, and a Python environment with pandas, pyarrow, polars, LightGBM, and XGBoost. The bridge automatically checks the current Asia/Shanghai month, fills missing M0 months through Tushare, runs one current M0–M4 window, caches intermediate data, and exposes progress through `/api/recommendations/monthly`.
 
-The Node.js portable package does not contain the 10q dataset or Python dependencies. The Windows flow can create `.monthly-venv` with `py -3.12 scripts/setup-monthly.py`; the macOS demo targets native ARM64 CPU environments. See [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md) and [`docs/MONTHLY-AUDIT.zh-CN.md`](docs/MONTHLY-AUDIT.zh-CN.md) for the verified runtime boundary and algorithm limitations.
+The portable package does not contain the 10q dataset or Python dependencies. Windows can create `.monthly-venv` with `py -3.12 scripts/setup-monthly.py`. The optional macOS 14+ setup uses native Python 3.12 and OpenMP, and stores its environment in `~/Library/Application Support/Cute Fish Stock Picker/monthly-venv`, outside the signed app bundle. The base application does not require Python or Homebrew. See [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md) and [`docs/MONTHLY-AUDIT.zh-CN.md`](docs/MONTHLY-AUDIT.zh-CN.md).
+
+### AI research (optional)
+
+Open the robot settings button, supply your provider's API URL, model and API key, and explicitly enable AI. The portable build includes the same locked, restricted DeepSeek Harness used by the source app. OpenAI-compatible endpoints can also be configured. Questions, selected financial evidence and selected research memory are sent to the configured model provider, which may charge for requests. Market data uses your Tushare permissions; missing data is not fabricated. Model credentials stay in the local user configuration and are never bundled in releases. See [`docs/AI-INTENT-CONSULTATION.zh-CN.md`](docs/AI-INTENT-CONSULTATION.zh-CN.md).
 
 ### One-click startup
 
-Use the **Download** button on the project site or [GitHub Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest): Windows 10/11 users download the Windows ZIP, and macOS users download the macOS ZIP. Extract it fully, then double-click `启动选股指南.bat` (Windows) or `启动选股指南.command` (macOS). The portable packages include Node.js, so no runtime installation is needed.
+Use the [download website](https://zjwandcat.github.io/cute-fish-stock-picker/) or [GitHub Releases](https://github.com/zjwandcat/cute-fish-stock-picker/releases/latest). Extract the ZIP, then double-click `启动选股指南.bat` (Windows) or `可爱鱼儿选股指南.app` (macOS). The Mac app has a service status window, browser button and Quit command; the legacy `.command` entry is retained for diagnostics. No Node.js/npm installation is needed.
 
 The first launch opens a setup page for your Tushare token. The token, holdings, settings, and cache are kept in the system user directory and survive upgrades. See [`docs/PORTABLE.zh-CN.md`](docs/PORTABLE.zh-CN.md) for details.
 
-The public [download website](https://zjwandcat.github.io/cute-fish-stock-picker/) runs on GitHub Pages and distributes the program; stock services run on the user's computer. The existing Vercel app also shows a download menu after deployment.
+The public [download website](https://zjwandcat.github.io/cute-fish-stock-picker/) only distributes the program; stock services run on the user's computer. The local More menu links to the repository, website and token settings. AI routes are local-only; this release's desktop workflow is not a hosted Vercel AI service.
 
 ### Publish desktop packages
 
-Pushing a `v*` tag makes GitHub Actions package Windows and macOS on native runners, then publishes both ZIP files and SHA-256 checksums to the Release. Native runners are required because the archives include the official Node.js runtime.
+Pushing a matching `v*` tag packages and tests Windows, native Apple Silicon and Intel macOS. Only after all three jobs pass are the Windows ZIP, universal Mac ZIP and SHA-256 files published. Both Mac architectures are included in the single download. CI tests extracted archives with no system Node.js/npm, isolated test data and an offline AI startup check; no paid model calls are made. This is not a Gatekeeper, live-provider or real 10q-data certification.
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 ## Project Structure

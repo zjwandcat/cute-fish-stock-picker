@@ -92,6 +92,45 @@ export function normalizeCode(code: string): string | null {
   return null;
 }
 
+/** Resolve a displayed stock name to a pool code for AI context input. */
+export function resolveStockInput(value: string): string | null {
+  const normalized = normalizeCode(value);
+  if (normalized) return normalized;
+  const needle = value.trim().toLowerCase();
+  if (!needle) return null;
+  const exact = STOCK_POOL.find(stock => stock.name.toLowerCase() === needle);
+  if (exact) return exact.ts_code;
+  const codes = new Set([...value.toUpperCase().matchAll(/(?<![A-Z0-9])(?:\d{1,5}\.HK|\d{6}(?:\.(?:SH|SZ|BJ))?)(?![A-Z0-9])/g)]
+    .map(match => normalizeCode(match[0])).filter((code): code is string => Boolean(code)));
+  if (codes.size) return codes.size === 1 ? [...codes][0] : null;
+  const matches = STOCK_POOL.filter(stock => needle.includes(stock.name.toLowerCase()));
+  // A longer name, e.g. 中国神华H, owns an overlapping A-share name.
+  const distinct = matches.filter(stock => !matches.some(other => other !== stock && other.name.toLowerCase().includes(stock.name.toLowerCase())));
+  if (distinct.length) return distinct.length === 1 ? distinct[0].ts_code : null;
+  const abbreviated = needle.length >= 2 ? STOCK_POOL.filter(stock => stock.name.toLowerCase().includes(needle)) : [];
+  return abbreviated.length === 1 ? abbreviated[0].ts_code : null;
+}
+
+/** Return distinct registered stock mentions, preserving longer A/H names. */
+export function findStockMentions(value: string, directory: StockInfo[] = STOCK_POOL): StockInfo[] {
+  const found = new Map<string, StockInfo>();
+  for (const match of value.toUpperCase().matchAll(/(?<![A-Z0-9])(?:\d{1,5}\.HK|\d{6}(?:\.(?:SH|SZ|BJ))?)(?![A-Z0-9])/g)) {
+    const code = normalizeCode(match[0]);
+    if (code) found.set(code, directory.find(stock => stock.ts_code === code) ?? STOCK_POOL.find(stock => stock.ts_code === code) ?? { ts_code: code, name: code, industry: '其他' });
+  }
+  const names = [...directory].sort((a, b) => b.name.length - a.name.length);
+  const occupied: Array<{ start: number; end: number; name: string }> = [];
+  for (const stock of names) {
+    const name = stock.name.toLowerCase();
+    let at = value.toLowerCase().indexOf(name);
+    while (at >= 0 && occupied.some(span => span.name !== name && span.start <= at && span.end >= at + name.length)) at = value.toLowerCase().indexOf(name, at + 1);
+    if (at < 0) continue;
+    found.set(stock.ts_code, stock);
+    occupied.push({ start: at, end: at + name.length, name });
+  }
+  return [...found.values()];
+}
+
 // 添加股票到股池
 export function addStock(tsCode: string, name: string, industry: string = '其他'): boolean {
   if (STOCK_POOL.find(s => s.ts_code === tsCode)) return false;

@@ -33,7 +33,7 @@ function state(status: string, message: string): MonthlyResult {
 }
 
 async function runnerPath(): Promise<string> {
-  const candidates = [process.env.TENQ_RUNNER, resolve(process.cwd(), 'monthly_recommendation_runner.py'),
+  const candidates = [process.env.TENQ_RUNNER, resolve(process.env.CUTE_FISH_APP_ROOT || process.cwd(), 'monthly_recommendation_runner.py'),
     resolve(process.cwd(), 'scripts', 'monthly_recommendation_runner.py')].filter((value): value is string => Boolean(value));
   for (const candidate of candidates) {
     if (await access(candidate).then(() => true, () => false)) return candidate;
@@ -81,7 +81,9 @@ async function runBridge(force: boolean): Promise<MonthlyResult> {
   await rm(progressPath, { force: true });
   const script = await runnerPath();
   const configured = process.env.TENQ_PYTHON?.trim();
-  const managed = resolve(process.cwd(), '.monthly-venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+  const managed = process.platform === 'darwin'
+    ? dataFile('monthly-venv/bin/python')
+    : resolve(process.env.CUTE_FISH_APP_ROOT || process.cwd(), '.monthly-venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   const managedExists = await access(managed).then(() => true, () => false);
   const candidates = configured ? [{ command: configured, args: [script] }]
     : managedExists ? [{ command: managed, args: [script] }]

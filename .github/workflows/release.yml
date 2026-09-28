@@ -4,6 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - 'codex/macos-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to build and publish'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,26 +21,43 @@ jobs:
     name: Package ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - platform: windows
             runner: windows-latest
+            upload: true
           - platform: macos
-            runner: macos-latest
+            runner: macos-15
+            upload: true
+          - platform: macos
+            runner: macos-15-intel
+            upload: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Check release version
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const p=JSON.parse(fs.readFileSync('package.json')); if (process.env.RELEASE_TAG !== 'v'+p.version) throw new Error('Tag/version mismatch');"
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.2
           cache: npm
       - run: npm ci
       - run: npm run lint
       - name: Build and package
         run: npm run package:${{ matrix.platform }}
       - name: Test production server and downloaded archive
+        env:
+          CUTE_FISH_REQUIRE_ARCHIVE: '1'
         run: npm run test:local
       - name: Upload package artifact
+        if: matrix.upload
         uses: actions/upload-artifact@v4
         with:
           name: cute-fish-stock-picker-${{ matrix.platform }}
@@ -40,12 +65,23 @@ jobs:
             release/cute-fish-stock-picker-${{ matrix.platform }}.zip
             release/cute-fish-stock-picker-${{ matrix.platform }}.zip.sha256
           if-no-files-found: error
+      - name: Upload native Mac window screenshot
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-window-${{ matrix.runner }}
+          path: .test-output/macos-app.png
+          if-no-files-found: error
 
   publish:
     name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
     needs: package
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/download-artifact@v4
         with:
           path: release
@@ -54,13 +90,10 @@ jobs:
       - name: Publish assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          body: |
-            Windows 10/11 (x64) 与 macOS 11+ (Apple 芯片 / Intel) 便携版。
-            下载对应 ZIP，完整解压后双击启动文件，首次在浏览器填写 Tushare Token。
-            内置 Node.js，无需安装开发环境。持仓、设置和 Token 保存在本机用户目录。
-            这是未签名便携包，首次打开可能需要按系统提示允许。请参阅仓库使用说明。
+          body_path: docs/RELEASE-v0.3.0.zh-CN.md
           files: |
             release/cute-fish-stock-picker-windows.zip
             release/cute-fish-stock-picker-windows.zip.sha256

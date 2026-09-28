@@ -2,10 +2,10 @@
 
 ## 使用方法
 
-1. 从项目 Releases 下载与你的系统对应的 ZIP，并完整解压到一个有写入权限的文件夹。
-2. Windows 10/11 双击 `启动选股指南.bat`；macOS 双击 `启动选股指南.command`。
+1. 从 [下载网站](https://zjwandcat.github.io/cute-fish-stock-picker/) 或项目 Releases 下载对应 ZIP，并完整解压。
+2. Windows 10/11 双击 `启动选股指南.bat`；Mac 双击 `可爱鱼儿选股指南.app`，也可将这个 `.app` 单独拖入“应用程序”。它包含全部基础应用文件，不依赖旁边的文件夹。
 3. 首次启动会自动打开设置页，粘贴你的 Tushare Token 并保存。Token 保存在本机用户目录中。
-4. 保持启动窗口打开，关闭窗口即可停止本地服务。
+4. Mac 关闭应用状态窗口、点击“退出”或按 Command-Q 停止本地服务；点击“打开选股页面”可重新打开浏览器。Windows 保持启动窗口打开，关闭即可停止。
 
 Windows 版同时支持 Windows 10 和 Windows 11（x64，64 位）。macOS 11 及以上支持 Apple 芯片和 Intel，启动脚本自动选择，无需手动区分。
 
@@ -14,7 +14,7 @@ Windows 版同时支持 Windows 10 和 Windows 11（x64，64 位）。macOS 11 �
 - 本程序只监听 `127.0.0.1`，行情请求由本机服务发出。
 - 持仓、设置和缓存保存在系统用户目录，升级程序时不会丢失。
 - Token 不会写入项目文件、日志、网页或 GitHub。
-- 修改 Token：在应用顶部“下载”的更多版本菜单选择“修改 Tushare Token”，或访问本地地址后的 `/setup`。
+- 修改 Token：在应用顶部“更多”菜单选择“修改 Tushare Token”，或访问本地地址后的 `/setup`。
 - 数据目录：Windows 为 `%APPDATA%\Cute Fish Stock Picker`；macOS 为 `~/Library/Application Support/Cute Fish Stock Picker`。备份时复制整个目录，内含个人 Token，请妥善保存。
 - 从旧源码版迁移：停止旧服务后，将 `api/data/` 中的 JSON 文件复制到上述用户目录，再启动便携版。在设置页重新填写 Token。
 
@@ -23,11 +23,17 @@ Windows 版同时支持 Windows 10 和 Windows 11（x64，64 位）。macOS 11 �
 - **浏览器没有自动打开**：手动打开启动窗口显示的 `http://127.0.0.1:端口` 地址。
 - **提示端口占用**：程序会先复用自己已经运行的实例；若端口被其他程序占用，会自动选择空闲端口。
 - **Windows SmartScreen 提示**：这是未签名的开源便携程序，确认下载来源为项目 GitHub Releases 后选择“更多信息 → 仍要运行”。
-- **macOS 阻止首次打开**：在“系统设置 → 隐私与安全性”中查看最近拦截并允许打开。较早版本也可以在 Finder 中右键脚本选择“打开”。不要关闭系统整体安全保护。
+- **macOS 阻止首次打开**：本版只有 ad-hoc 完整性签名，没有 Apple Developer ID 签名及 Apple 公证。先确认来自本项目，在“系统设置 → 隐私与安全性”中找到最近拦截并选择“仍要打开”，然后确认系统提示。不要关闭 Gatekeeper，也不需要执行终端移除隔离属性的命令。公司管理的 Mac 可能需要管理员批准。
 - **更换 Token 后数据尚未刷新**：关闭启动窗口后重新启动，清空当前会话的内存缓存。
 - **没有行情**：检查网络、Token 和 Tushare 对相应接口的权限。首次韭菜50构建需要较多请求，请等待缓存完成。
 
-这些 ZIP 是便携程序，不是已签名的 `.exe` 安装器或 `.dmg` 应用包。运行时仍需联网获取行情，但无需运行 `npm install` 或安装 Node.js。
+这些 ZIP 是便携程序，不是安装器。Mac ZIP 包含原生 `.app` 和 ARM64/x64 两套官方 Node.js；自动选择本机架构，不要求 Rosetta。运行时仍需联网获取行情，但无需运行 `npm install` 或安装 Node.js、Homebrew、Python。后两项仅用于下面的可选月度扩展。
+
+## AI 研究
+
+基础行情不要求 AI 密钥。需要 AI 时，打开机器人设置，填写自己的模型地址、模型名和 API Key，并明确启用。发布包内置锁定版本的受限 DeepSeek Harness 及 MCP 依赖，不在用户机器临时安装 npm 包。
+
+问题、选取的金融证据和记忆会发送给用户配置的模型服务商，可能计费；配置的 API Key 保存在本机 `config.json`，API 不返回密钥。支持取消任务；模型请求失败不会盲目重放已发出的调用。研究不执行交易，不把缺失行情或财务数据当作真实数据补造。自动测试使用模拟数据或离线启动，不能当作真实模型输出质量证明。
 
 ## 本月推荐
 
@@ -41,16 +47,16 @@ Python 运行环境与 10q 数据不包含在 Node.js 便携包内。可使用�
 
 详细核验与算法限制见 `docs/MONTHLY-AUDIT.zh-CN.md`。运行中的应用每分钟检查任务状态，跨月自动准备新持仓；成功结果每小时重新检查输入。关闭应用期间不会后台运行，重新打开后自动继续。原始数据与新增 M0 缓存在 10q 的 `data` 目录；该目录需要可写。`CUTE_FISH_MONTHLY_AUTO=0` 仅供测试时关闭自动任务。
 
-## macOS 月度功能 Demo
+## macOS 月度扩展
 
 月度功能优先面向 Apple Silicon ARM64、macOS 14 及以上（含当前新版系统），使用原生 CPU 库，不需要 Rosetta，不使用 CUDA/Metal。基础行情包的旧系统支持范围不代表月度机器学习依赖的支持范围。
 
 1. 安装原生 Python 3.12 和 OpenMP，例如 Homebrew 的 `brew install python@3.12 libomp`。
-2. 双击包内 `设置月度环境.command`，创建隔离环境并检查依赖。若提示依赖动态库缺失，先确认原生 `libomp` 已安装。
-3. 将完整 10q 项目放到 `~/10q` 或 `~/10q/10q-202604gpu`，包括 Python 模块、config、scheme_b 月度因子库以及 Trial 157 数据库和 p2 配置。也可把项目放到应用目录的 `tenq` 子目录，或通过 `TENQ_ROOT` 指定。
-4. 双击 `启动选股指南.command`。页面使用与 Windows 相同的十股推荐和专业归因。
+2. 双击完整解压文件夹中的 `设置月度环境.command`，创建隔离环境并检查依赖。环境保存在 `~/Library/Application Support/Cute Fish Stock Picker/monthly-venv`；不会向 `.app` 写入内容，升级应用也不会删除环境。若提示依赖动态库缺失，先确认原生 `libomp` 已安装。
+3. 将完整 10q 项目放到 `~/10q` 或 `~/10q/10q-202604gpu`，包括 Python 模块、config、scheme_b 月度因子库以及 Trial 157 数据库和 p2 配置。源码用户也可通过 `TENQ_ROOT` 指定。不要向 `.app` 内放入项目和数据，以免破坏签名完整性。
+4. 双击 `可爱鱼儿选股指南.app`。页面使用与 Windows 相同的十股推荐和专业归因。
 
-当前只有 Windows 真机测试；macOS 代码与依赖安装流程已经准备，但未在本机实际运行 macOS、也未宣称通过最新系统兼容认证。手动 CI `Monthly native CPU demo` 会在 `macos-latest` 检查 ARM64、原生 CPU 模型贡献与 Web 构建。本轮未上传 GitHub，因此该 CI 尚未执行。
+历史真实 10q 数据验收来自 Windows，不能据此宣称 Mac 的真实数据计算已经通过。发布流水线会在 Apple Silicon 与 Intel Mac runner 上执行基础应用构建、解压启动和离线 AI 运行时验证。手动 `Monthly native CPU demo` 独立检查月度 Python 与 CPU 模型贡献；即使通过也不包含私人 10q 数据集的实盘结果核验。实际执行状态以对应 GitHub Actions 记录为准。
 
 MacBook Air 到位后的验收：最新 macOS 上解压启动、ARM64 依赖安装、真实 Trial 157 单窗口、结果与 Windows 的排名比较、内存与耗时、睡眠恢复、中文路径、报告双击与窗口缩放。无真实 10q 数据的依赖 smoke test 不算完整选股验收。
 

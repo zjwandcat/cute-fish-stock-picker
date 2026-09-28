@@ -14,6 +14,8 @@ import dotenv from 'dotenv';
 
 import stockRoutes from './routes/stocks.js';
 import alertRoutes from './routes/alerts.js';
+import aiRoutes from './routes/ai.js';
+import { localAiAccess } from './services/ai/localAccess.js';
 
 // Load .env into process.env
 dotenv.config();
@@ -29,6 +31,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
  */
 app.use('/api', stockRoutes);
 app.use('/api', alertRoutes);
+app.use('/api/ai', localAiAccess);
+app.use('/api', aiRoutes);
 
 /**
  * Health check

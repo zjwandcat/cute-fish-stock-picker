@@ -8,6 +8,7 @@ import Bagholder50Section from '@/components/Bagholder50Section';
 import StockTable from '@/components/StockTable';
 import DetailPanel from '@/components/DetailPanel';
 import AlertPanel from '@/components/AlertPanel';
+import AiAssistant from '@/components/ai/AiAssistant';
 
 export default function Home() {
   const startAutoRefresh = useStockStore((s) => s.startAutoRefresh);
@@ -46,6 +47,7 @@ export default function Home() {
       </main>
       <DetailPanel />
       <AlertPanel />
+      <AiAssistant />
     </div>
   );
 }

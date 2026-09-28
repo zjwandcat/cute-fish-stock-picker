@@ -968,7 +968,7 @@ export async function getBagholder50(): Promise<BagholderResult> {
 }
 
 /** 单股韭菜50状态：上榜=卖出信号，未上榜=无信号（两态）；港股/池外股无信号 */
-export async function getBagholderStatus(tsCode: string): Promise<BagholderStockStatus> {
+export async function getBagholderStatus(tsCode: string, cachedOnly = false): Promise<BagholderStockStatus> {
   if (isHK(tsCode)) {
     return {
       available: false,
@@ -987,9 +987,15 @@ export async function getBagholderStatus(tsCode: string): Promise<BagholderStock
 
   let result: BagholderResult | null = null;
   try {
-    result = await getBagholder50();
+    if (cachedOnly) {
+      result = cache.get<BagholderResult>('bagholder50_result')
+        ?? JSON.parse(await readFile(RESULT_FILE, 'utf8')) as BagholderResult;
+      if (!result?.signal_date || !Array.isArray(result.top50) || !result.scores || !result.ranks) throw new Error('缓存尚未就绪');
+    } else {
+      result = await getBagholder50();
+    }
   } catch (err) {
-    console.error('[bagholder50] 名单获取失败:', (err as Error).message);
+    if (!cachedOnly) console.error('[bagholder50] 名单获取失败:', (err as Error).message);
     return {
       available: false,
       market: 'A',
@@ -1001,7 +1007,7 @@ export async function getBagholderStatus(tsCode: string): Promise<BagholderStock
       factors: null,
       raw: null,
       signal: 'none',
-      signal_text: `韭菜50名单生成失败（${(err as Error).message}），数据未齐备时不降级（fail-closed），本次无信号`,
+      signal_text: cachedOnly ? '尚无可用拥挤度缓存，本次研究未触发全市场扫描。' : `韭菜50名单生成失败（${(err as Error).message}），数据未齐备时不降级（fail-closed），本次无信号`,
     };
   }
 

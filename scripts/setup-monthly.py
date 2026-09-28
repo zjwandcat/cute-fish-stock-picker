@@ -33,7 +33,9 @@ def main():
             raise SystemExit("Use native arm64 Python, not Rosetta, on Apple Silicon.")
         if int(platform.mac_ver()[0].split(".")[0]) < 14:
             raise SystemExit("The monthly macOS demo targets macOS 14+ and current macOS releases.")
-    environment = root / ".monthly-venv"
+    environment = (Path(os.environ.get("CUTE_FISH_DATA_DIR",
+                   str(Path.home() / "Library/Application Support/Cute Fish Stock Picker"))) / "monthly-venv"
+                   if sys.platform == "darwin" else root / ".monthly-venv")
     python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     if not args.check:
         if not python.exists():
