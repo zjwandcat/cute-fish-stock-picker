@@ -21,6 +21,7 @@ import {
 } from '../services/tushare.js';
 import {
   scoreStocks,
+  sortRecommendationsByScore,
   applySectorDiversification,
   type StockData,
   type Recommendation,
@@ -399,7 +400,7 @@ async function getCapitalScored(): Promise<Recommendation[]> {
 
 /**
  * GET /api/recommendations - 获取今日推荐（默认 5 只）
- * ?mode=capital 资金面综合评分（当前评分方案，含 T+1 调整与强制 Top4）
+ * ?mode=capital 资金面综合评分（当前评分方案，含 T+1 调整；全自选股按分数取前五）
  * ?mode=tet     按 TET 买入信号评分排序（NAAIM 2025 趋势-情绪-时机）
  * ?mode=macdv   按 MACD-V 买入信号评分排序（SSRN #4099617 波动率归一化动量）
  * ?mode=double  TET 与 MACD-V 买入信号同时点亮，再按资金面综合评分排序（前5）
@@ -439,12 +440,12 @@ router.get('/recommendations', async (req: Request, res: Response): Promise<void
           risk_level: base?.risk_level ?? 'medium',
         });
       }
-      entries.sort((a, b) => b.total_score - a.total_score);
+      const rankedEntries = sortRecommendationsByScore(entries);
 
       // 行业分散约束：Top 5 每个行业最多 2 只
-      const diversified = applySectorDiversification(entries, industryMap, limit, 2);
+      const diversified = applySectorDiversification(rankedEntries, industryMap, limit, 2);
       const diversifiedCodes = new Set(diversified.map((r) => r.ts_code));
-      finalRanked = [...diversified, ...entries.filter((r) => !diversifiedCodes.has(r.ts_code))];
+      finalRanked = [...diversified, ...rankedEntries.filter((r) => !diversifiedCodes.has(r.ts_code))];
     } else if (mode === 'tet' || mode === 'macdv') {
       // TET / MACD-V 模式：按对应算法买入信号评分排序
       const signals = await getPoolSignals();
@@ -480,35 +481,16 @@ router.get('/recommendations', async (req: Request, res: Response): Promise<void
           });
         }
       }
-      entries.sort((a, b) => b.total_score - a.total_score);
+      const rankedEntries = sortRecommendationsByScore(entries);
 
       // 行业分散约束：Top 5 每个行业最多 2 只，避免过度集中
-      const diversified = applySectorDiversification(entries, industryMap, limit, 2);
+      const diversified = applySectorDiversification(rankedEntries, industryMap, limit, 2);
       const diversifiedCodes = new Set(diversified.map((r) => r.ts_code));
-      finalRanked = [...diversified, ...entries.filter((r) => !diversifiedCodes.has(r.ts_code))];
+      finalRanked = [...diversified, ...rankedEntries.filter((r) => !diversifiedCodes.has(r.ts_code))];
     } else {
-      // 资金面模式：多因子综合评分（当前评分方案）
-      // 行业分散约束：Top 4 每个行业最多 2 只，避免过度集中
-      // 分散后的前 4 名 + 其余按原序排列，保证 limit>4 时也能返回完整列表
-      const diversified = applySectorDiversification(scored, industryMap, 4, 2);
-
-      // 强制指定 Top 4：2026-08-25 周二调整（科技弱防御强，替换腾讯）
-      // 长鑫科技(56-58进场区,评分75断层领先,严格盯54止损) + 云南白药(50-51进场区,现价49.83防御)
-      // + 中国神华(45.5-46.5进场区,涨超上限不追等回踩,股息6.3%) + 立讯精密(52-53.5进场区,现价52.67★已进入)
-      // 调整原因：腾讯技术分仅13、已跌破445建仓提醒线、距432止损仅1.8%，换入已在进场区的立讯精密
-      // 行业分散：半导体(存储)+医药+煤炭+消费电子
-      // 保留算法计算的分数/T+1/风险/理由，仅强制股票列表
-      const FORCED_TOP4 = ['688825.SH', '000538.SZ', '601088.SH', '002475.SZ'];
-      const forcedTop4 = FORCED_TOP4.map((code) => scored.find((s) => s.ts_code === code)).filter(
-        (s): s is NonNullable<typeof s> => s !== undefined,
-      );
-      if (forcedTop4.length === 4) {
-        diversified.length = 0; // 清空原列表
-        forcedTop4.forEach((s) => diversified.push(s));
-      }
-
-      const diversifiedCodes = new Set(diversified.map((r) => r.ts_code));
-      finalRanked = [...diversified, ...scored.filter((r) => !diversifiedCodes.has(r.ts_code))];
+      // 资金面模式：全自选股按资金面评分说明的综合分严格降序取前五。
+      // 不做人工股票覆盖，也不做行业分散，避免推荐顺序与分数不一致。
+      finalRanked = sortRecommendationsByScore(scored);
     }
 
     // 取前 N 名（支持分页），附加 T+1 预测与风险标签

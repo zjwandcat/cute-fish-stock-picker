@@ -17,9 +17,9 @@ The Mac app is not Apple Developer ID signed or notarized. Its first launch may 
 
 - **Watchlist tracking** — add/remove stocks at runtime, auto-refresh quotes every 30 seconds
 - **Real-time quotes** — Sina Finance intraday quotes for A/H shares, with Tushare/HK historical fallbacks; realtime data is only injected into a K-line when its provider date is today
-- **Intelligent scoring** — technical (MA / MACD / volume ratio) + fundamental (PE / PB / ROE) + capital-flow, multi-factor Z-score normalized with IC weights and ±3σ winsorization
+- **Intelligent scoring** — technical (MA / MACD / volume ratio) + fundamental (PE / PB / ROE) + capital-flow; value, quality, momentum, low-volatility, liquidity, size, and flow factors use cross-sectional Z-score normalization with fixed weights and 3%-97% winsorization
 - **TET & MACD-V signals** — Trend-/Emotion-aligned timing (NAAIM 2025) and volume-adjusted momentum (MACD-V, SSRN #4099617); 11 sell-trigger mechanism for holdings (incl. crowding avoid)
-- **Buy/sell recommendations** — per-stock overall verdict (buy / watch / sell), four daily modes (capital / TET / MACD-V / double resonance), and sector-diversified picks with the current manual Top-4 override
+- **Buy/sell recommendations** — per-stock overall verdict (buy / watch / sell); the capital mode strictly ranks the full watchlist by composite score and returns the top five with deterministic tie-breaking, while TET / MACD-V / double-resonance modes retain sector diversification
 - **Monthly 10q portfolio** — optional real M0 → M1 → M2 → M3 → M4 run using `21BB p2 Trial 157` and `scheme_b`; returns ten risk-controlled positions with progress, report, and factor attribution, and refuses stale or non-current output
 - **Watchlist alerts** — five signal types (dip / bottom / rebound / volume / target), browser notification + sound, color-coded pullback status
 - **K-line charts** — daily K + moving averages + volume

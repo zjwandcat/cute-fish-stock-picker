@@ -66,7 +66,7 @@ function calcInstitutionalRatio(holders: Top10Holder[]): number {
   return Math.min(ratio, top10Total);
 }
 
-// ==================== 第2项：6大类因子（高盛/摩根多因子框架） ====================
+// ==================== 第2项：公开多因子方法的工程化近似 ====================
 
 interface RawFactors {
   // 价值
@@ -286,7 +286,7 @@ function zScore(values: number[]): number[] {
   return values.map((v) => (v - mean) / std);
 }
 
-// 因子权重表（参考高盛 A 股多因子研究的 IC 加权近似值）
+// 固定权重表：借鉴公开机构多因子研究的常见维度，不代表任何机构内部参数或模型。
 const FACTOR_WEIGHTS: Record<keyof RawFactors, number> = {
   ep: 0.10, // 价值
   bp: 0.05,
@@ -327,6 +327,15 @@ export interface StockData {
   holders: Top10Holder[];
   moneyFlow?: MoneyFlow | null; // 第3项新增
   realtime?: RealtimeQuote | null; // 第1项新增
+}
+
+/** 按综合分降序排列；同分按代码排序，且不修改调用方数组。 */
+export function sortRecommendationsByScore(recommendations: Recommendation[]): Recommendation[] {
+  return [...recommendations].sort((a, b) => {
+    if (a.total_score !== b.total_score) return b.total_score - a.total_score;
+    if (a.ts_code === b.ts_code) return 0;
+    return a.ts_code < b.ts_code ? -1 : 1;
+  });
 }
 
 export function scoreStocks(stocks: StockData[]): Recommendation[] {
@@ -401,10 +410,10 @@ export function scoreStocks(stocks: StockData[]): Recommendation[] {
     };
   });
 
-  return results.sort((a, b) => b.total_score - a.total_score);
+  return sortRecommendationsByScore(results);
 }
 
-// ==================== 行业分散约束（高盛/摩根组合构建标准） ====================
+// ==================== 可选的行业分散约束 ====================
 // 贪心算法：按综合分从高到低选，每个行业最多 maxPerSector 只
 // 保证 Top-N 组合不会过度集中在单一行业
 export function applySectorDiversification(

@@ -171,11 +171,15 @@ export default function RecommendSection() {
                 >
                   {rec.score}
                 </span>
-                {recommendationMode !== 'capital' && (
-                  <span className={`text-xs ${textSecondary}`}>
-                    {recommendationMode === 'tet' ? 'TET买入分' : recommendationMode === 'macdv' ? 'MACD-V买入分' : '资金面分'}
-                  </span>
-                )}
+                <span className={`text-xs ${textSecondary}`}>
+                  {recommendationMode === 'capital'
+                    ? '资金面综合分'
+                    : recommendationMode === 'tet'
+                      ? 'TET买入分'
+                      : recommendationMode === 'macdv'
+                        ? 'MACD-V买入分'
+                        : '资金面分'}
+                </span>
               </div>
             </div>
 
